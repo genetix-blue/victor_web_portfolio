@@ -460,23 +460,25 @@ app.delete('/api/admin/photos/:id', async (req, res) => {
 // Update photo order (admin)
 app.post('/api/admin/photos/reorder', async (req, res) => {
   const { token, order } = req.body;
+
   if (token !== 'admin-token') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
-    // Update order_index for each photo
-    for (let i = 0; i < order.length; i++) {
+    for (const photo of order) {
       const { error } = await supabaseAdmin
         .from('photos')
-        .update({ order_index: i })
-        .eq('id', order[i]);
+        .update({ order_index: photo.order })
+        .eq('id', photo.id);
 
       if (error) {
-        return res.status(500).json({ error: 'Failed to update order' });
+        console.error(error);
+        return res.status(500).json({
+          error: 'Failed to update order'
+        });
       }
     }
-
     res.json({ success: true });
   } catch (error) {
     console.error('Reorder handler error:', error);

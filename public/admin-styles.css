@@ -1,3 +1,6 @@
+/* ==========================================================================
+   1. Reset & Global Styles
+   ========================================================================== */
 * {
     margin: 0;
     padding: 0;
@@ -8,15 +11,23 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background-color: #f5f5f5;
     color: #333;
+    line-height: 1.5;
 }
 
-/* Login Page */
+.hidden {
+    display: none !important;
+}
+
+/* ==========================================================================
+   2. Login Page
+   ========================================================================== */
 .login-container {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1rem;
 }
 
 .login-box {
@@ -32,6 +43,7 @@ body {
     margin-bottom: 1.5rem;
     text-align: center;
     color: #333;
+    font-size: 1.75rem;
 }
 
 #login-form {
@@ -45,6 +57,7 @@ body {
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
+    width: 100%;
 }
 
 #password:focus {
@@ -76,12 +89,9 @@ body {
     margin-top: 0.5rem;
 }
 
-.login-container.hidden,
-.admin-panel.hidden {
-    display: none;
-}
-
-/* Admin Panel */
+/* ==========================================================================
+   3. Admin Panel Structure & Core UI
+   ========================================================================== */
 .admin-panel {
     display: flex;
     flex-direction: column;
@@ -139,6 +149,7 @@ section h2 {
     font-size: 1.3rem;
 }
 
+/* Forms & General Inputs */
 #upload-form {
     display: flex;
     flex-direction: column;
@@ -171,7 +182,24 @@ section h2 {
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* Preview Container */
+.btn-primary {
+    padding: 0.75rem 1.5rem;
+    background-color: #667eea;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.btn-primary:hover {
+    background-color: #5568d3;
+}
+
+/* ==========================================================================
+   4. Local File Upload Previews (Inline Dashboard)
+   ========================================================================== */
 .preview-container {
     margin-top: 1.5rem;
 }
@@ -192,12 +220,14 @@ section h2 {
     border: 2px solid #ddd;
     overflow: hidden;
     background-color: #f5f5f5;
-    max-height: 120px;
+    height: 120px;
+    border-radius: 4px;
 }
 
 .preview-item img {
-    width: auto;
+    width: 100%;
     height: 100%;
+    object-fit: cover;
     display: block;
 }
 
@@ -224,7 +254,6 @@ section h2 {
     font-size: 0.85rem;
 }
 
-/* Upload Section */
 .file-input-wrapper {
     display: flex;
     flex-direction: column;
@@ -287,23 +316,23 @@ section h2 {
     display: none;
 }
 
-.message.show {
-    display: block;
-}
-
 .message.success {
+    display: block;
     background-color: #e8f5e9;
     color: #2e7d32;
     border: 1px solid #2e7d32;
 }
 
 .message.error {
+    display: block;
     background-color: #ffebee;
     color: #d32f2f;
     border: 1px solid #d32f2f;
 }
 
-/* Folders Section */
+/* ==========================================================================
+   5. Folders List (Dashboard Directory)
+   ========================================================================== */
 .folders-section {
     margin-bottom: 2rem;
 }
@@ -330,21 +359,6 @@ section h2 {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.btn-primary {
-    padding: 0.75rem 1.5rem;
-    background-color: #667eea;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.btn-primary:hover {
-    background-color: #5568d3;
 }
 
 .folders-list {
@@ -378,6 +392,7 @@ section h2 {
     font-size: 1.1rem;
     word-break: break-word;
     flex: 1;
+    padding-right: 0.1rem;
 }
 
 .folder-actions {
@@ -390,19 +405,20 @@ section h2 {
     background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     cursor: pointer;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     transition: background 0.3s;
+    line-height: 1;
 }
 
 .btn-edit:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.4);
 }
 
 .btn-delete:hover {
-    background: rgba(255, 0, 0, 0.3);
+    background: rgba(244, 67, 54, 0.5);
 }
 
 .btn-view {
@@ -421,34 +437,41 @@ section h2 {
     background: rgba(255, 255, 255, 0.3);
 }
 
-.empty {
+.empty, .empty-message {
     text-align: center;
     color: #999;
     font-style: italic;
+    padding: 1.5rem;
+    width: 100%;
 }
 
-/* Modal */
+/* ==========================================================================
+   6. Modal Layer & Photo Grids (Multi-column Fixed Area)
+   ========================================================================== */
 .modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
+    padding: 1rem;
 }
 
 .modal-content {
     background: white;
     padding: 2rem;
     border-radius: 8px;
-    max-width: 90vw;
-    max-height: 90vh;
+    width: 100%;
+    max-width: 900px;
+    max-height: 85vh;
     overflow-y: auto;
     position: relative;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
 }
 
 .btn-close {
@@ -461,6 +484,7 @@ section h2 {
     border-radius: 4px;
     cursor: pointer;
     font-weight: 600;
+    transition: background 0.2s;
 }
 
 .btn-close:hover {
@@ -468,124 +492,92 @@ section h2 {
 }
 
 .modal-content h2 {
-    margin-bottom: 1.5rem;
     margin-top: 0;
+    color: #333;
+    font-size: 1.5rem;
+    padding-right: 1rem;
 }
 
+/* The Modal Photo Grid Layout Container */
 .photos-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 1rem;
+    margin-top: 1.5rem;
+    columns: 3;
+    column-gap: 0.2rem;
 }
 
 .photo-item {
     position: relative;
-    background-color: #f5f5f5;
-    border-radius: 8px;
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
     overflow: hidden;
-    transition: transform 0.3s;
-}
-
-.photo-item img {
-    width: 100%;
-    height: 150px;
-    object-fit: cover;
-    display: block;
-}
-
-.btn-delete-photo {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    padding: 0.5rem;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: none;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background 0.3s;
-    transform: translateY(100%);
-}
-
-.photo-item:hover .btn-delete-photo {
-    transform: translateY(0);
-}
-
-/* Upload Section */
-.photos-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1.5rem;
-}
-
-.photo-item {
-    position: relative;
-    background-color: #f5f5f5;
-    border-radius: 8px;
-    overflow: hidden;
-    transition: transform 0.3s;
+    transition: transform 0.25s, box-shadow 0.25s;
+    display: flex;
+    flex-direction: column;
 }
 
 .photo-item:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
 }
 
 .photo-thumbnail {
     width: 100%;
-    height: 180px;
     object-fit: cover;
+    display: block;
+    background-color: #eaeaea;
+}
+
+.folder-view{
+    display: flex;
+    align-items: center;
 }
 
 .photo-actions {
-    padding: 0.75rem;
+    position:absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
     display: flex;
     gap: 0.5rem;
-    background-color: white;
-}
-
-.delete-btn,
-.move-up-btn,
-.move-down-btn {
-    flex: 1;
-    padding: 0.5rem;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 600;
-    transition: background-color 0.3s;
 }
 
 .delete-btn {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: background-color 0.2s;
     background-color: #ffebee;
     color: #d32f2f;
+    text-align: center;
 }
 
 .delete-btn:hover {
     background-color: #ffcdd2;
 }
 
-.move-up-btn,
-.move-down-btn {
-    background-color: #e3f2fd;
-    color: #1976d2;
-}
-
-.move-up-btn:hover,
-.move-down-btn:hover {
-    background-color: #bbdefb;
-}
-
-.empty-message {
+.empty-modal-msg {
     text-align: center;
-    color: #999;
-    padding: 2rem;
+    color: #888;
+    padding: 3rem 1rem;
+    font-style: italic;
 }
 
+/* ==========================================================================
+   7. Media Queries (Responsive Styling Adaptations)
+   ========================================================================== */
 @media (max-width: 768px) {
+    .admin-navbar {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+        padding: 1rem;
+    }
+
     .admin-content {
         padding: 1rem;
     }
@@ -594,22 +586,27 @@ section h2 {
         padding: 1rem;
     }
 
-    .admin-navbar {
+    .new-folder-form {
         flex-direction: column;
-        gap: 1rem;
-        text-align: center;
     }
 
-    .photos-list {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 1rem;
+    .modal-content {
+        padding: 1.5rem 1rem;
+        max-height: 90vh;
+    }
+
+    .modal-content h2 {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+
+    /* Keeps the grid functional inside smaller mobile layouts */
+    .photos-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        gap: 0.75rem;
     }
 
     .photo-thumbnail {
-        height: 150px;
-    }
-
-    .photo-actions {
-        flex-direction: column;
+        height: 110px;
     }
 }

@@ -65,12 +65,10 @@ function showFolder(folderId) {
     
     if (folder.photos.length === 0) {
         gallery.innerHTML = `<div class="folder-view">
-            <h2>${escapeHtml(folder.name)}</h2>
             <p class="empty-folder">No photos in this folder</p>
         </div>`;
     } else {
         gallery.innerHTML = `<div class="folder-view">
-            <h2>${escapeHtml(folder.name)}</h2>
             <div class="photos-grid">
                 ${folder.photos.map((photo, index) => `
                     <div class="gallery-item" onclick="openLightbox(${index})">
@@ -80,6 +78,8 @@ function showFolder(folderId) {
             </div>
         </div>`;
     }
+
+    setupAnimations();
 }
 
 // Lightbox functionality with arrow navigation
@@ -93,15 +93,15 @@ function openLightbox(photoIndex) {
     const imageUrl = currentPhotos[photoIndex].url;
     
     lightbox.innerHTML = `
+        <span class="lightbox-nav prev" onclick="navigateLightbox(-1)">&lt;</span>
         <div class="lightbox-content">
             <span class="lightbox-close" onclick="this.closest('.lightbox').remove()">&times;</span>
             <img src="${imageUrl}" alt="Full size" class="lightbox-image">
             ${currentPhotos.length > 1 ? `
-                <span class="lightbox-nav prev" onclick="navigateLightbox(-1)">&lt;</span>
-                <span class="lightbox-nav next" onclick="navigateLightbox(1)">&gt;</span>
                 <span class="lightbox-counter">${photoIndex + 1} / ${currentPhotos.length}</span>
-            ` : ''}
-        </div>
+                ` : ''}
+                </div>
+        <span class="lightbox-nav next" onclick="navigateLightbox(1)">&gt;</span>
     `;
     document.body.appendChild(lightbox);
 
@@ -112,27 +112,23 @@ function openLightbox(photoIndex) {
     lightbox.onclick = (e) => {
         if (e.target === lightbox) lightbox.remove();
     };
+}
 
-    // Close on Escape key or navigate with arrow keys
-    const handleKeyDown = (e) => {
-        const lb = document.querySelector('.lightbox.active');
-        if (!lb) {
-            document.removeEventListener('keydown', handleKeyDown);
-            return;
-        }
+document.addEventListener('keydown', handleKeyDown);
 
-        if (e.key === 'Escape') {
-            lb.remove();
-            document.removeEventListener('keydown', handleKeyDown);
-        } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            navigateLightbox(-1);
-        } else if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            navigateLightbox(1);
-        }
-    };
-    document.addEventListener('keydown', handleKeyDown);
+function handleKeyDown(e) {
+    const lb = document.querySelector('.lightbox.active');
+    if (!lb) return;
+
+    if (e.key === 'Escape') {
+        lb.remove();
+    } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        navigateLightbox(-1);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        navigateLightbox(1);
+    }
 }
 
 function navigateLightbox(direction) {
@@ -168,3 +164,23 @@ function escapeHtml(text) {
 
 // Load gallery on page load
 document.addEventListener('DOMContentLoaded', loadGallery);
+
+const observer = new IntersectionObserver(
+    (entries) => {
+        entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                observer.unobserve(entry.target);
+            }
+        });
+    },
+    {
+        threshold: 0.15
+    }
+);
+
+function setupAnimations() {
+    document.querySelectorAll('.gallery-item').forEach((item) => {
+        observer.observe(item);
+    });
+}
