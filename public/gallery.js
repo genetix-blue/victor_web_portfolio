@@ -68,8 +68,9 @@ function showFolder(folderId) {
             <p class="empty-folder">No photos in this folder</p>
         </div>`;
     } else {
+        // 1. Notice we added 'is-loading' class to keep it hidden/transparent initially
         gallery.innerHTML = `<div class="folder-view">
-            <div class="photos-grid">
+            <div class="photos-grid is-loading">
                 ${folder.photos.map((photo, index) => `
                     <div class="gallery-item" onclick="openLightbox(${index})">
                         <img src="${photo.url}" alt="Gallery photo" loading="lazy">
@@ -77,9 +78,50 @@ function showFolder(folderId) {
                 `).join('')}
             </div>
         </div>`;
-    }
 
-    setupAnimations();
+        // 2. Wait for all images to actually download before animating
+        const grid = gallery.querySelector('.photos-grid');
+        const images = grid.querySelectorAll('img');
+
+        waitForImagesToLoad(images).then(() => {
+            // Remove the loading state restrictions
+            grid.classList.remove('is-loading');
+            // Kick off your IntersectionObserver animations safely
+            setupAnimations();
+        });
+    }
+}
+
+// Helper function to track image loading states
+function waitForImagesToLoad(images) {
+    const promises = Array.from(images).map(img => {
+        return new Promise((resolve) => {
+            // If image is already cached/loaded by the browser
+            if (img.complete) {
+                resolve();
+            } else {
+                img.onload = () => resolve();
+                img.onerror = () => resolve(); // Resolve anyway so one broken image doesn't break the gallery
+            }
+        });
+    });
+    return Promise.all(promises);
+}
+
+// Helper function to track image loading states
+function waitForImagesToLoad(images) {
+    const promises = Array.from(images).map(img => {
+        return new Promise((resolve) => {
+            // If image is already cached/loaded by the browser
+            if (img.complete) {
+                resolve();
+            } else {
+                img.onload = () => resolve();
+                img.onerror = () => resolve(); // Resolve anyway so one broken image doesn't break the gallery
+            }
+        });
+    });
+    return Promise.all(promises);
 }
 
 // Lightbox functionality with arrow navigation
