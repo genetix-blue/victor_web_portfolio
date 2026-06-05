@@ -367,8 +367,6 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
-    }
-}
 
 function logout() {
     sessionStorage.removeItem('adminToken');
