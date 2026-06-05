@@ -108,9 +108,12 @@ app.get('/api/photos', async (req, res) => {
 // Admin login check
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const adminPassword = (process.env.ADMIN_PASSWORD || 'admin123').trim();
   
-  if (password === adminPassword) {
+  console.log('Login attempt - Password match:', password?.trim() === adminPassword);
+  console.log('Stored admin password:', adminPassword);
+  
+  if (password?.trim() === adminPassword) {
     res.json({ success: true, token: 'admin-token' });
   } else {
     res.json({ success: false });
