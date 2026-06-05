@@ -75,6 +75,12 @@ CREATE POLICY "Allow public read" ON public.photos
 
 // Routes
 
+
+// Serve home page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Serve admin page
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
