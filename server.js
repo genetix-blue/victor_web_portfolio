@@ -4,6 +4,7 @@ const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const bodyParser = require('body-parser');
+const sharp = require('sharp');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -332,13 +333,20 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
   }
 
   try {
-    const fileName = `${Date.now()}-${req.file.originalname}`;
+    // Convert image to WebP with high quality for minimal quality loss
+    const webpBuffer = await sharp(req.file.buffer)
+      .webp({ quality: 85 })
+      .toBuffer();
+
+    // Generate filename with .webp extension
+    const originalName = path.parse(req.file.originalname).name;
+    const fileName = `${Date.now()}-${originalName}.webp`;
     
-    // Upload to Supabase Storage using admin key (has full permissions)
+    // Upload converted WebP to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('photos')
-      .upload(`public/${fileName}`, req.file.buffer, {
-        contentType: req.file.mimetype,
+      .upload(`public/${fileName}`, webpBuffer, {
+        contentType: 'image/webp',
         upsert: true,
         cacheControl: '3600'
       });

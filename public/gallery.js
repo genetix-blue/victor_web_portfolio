@@ -1,5 +1,6 @@
 let allFolders = [];
 let currentFolderId = null;
+let currentPhotos = [];
 
 // Load and display folders with their photos
 async function loadGallery() {
@@ -51,6 +52,9 @@ function showFolder(folderId) {
     
     if (!folder) return;
 
+    // Store current photos for arrow navigation
+    currentPhotos = folder.photos;
+
     // Update active link
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     const activeLink = document.getElementById(`link-${folderId}`);
@@ -68,8 +72,8 @@ function showFolder(folderId) {
         gallery.innerHTML = `<div class="folder-view">
             <h2>${escapeHtml(folder.name)}</h2>
             <div class="photos-grid">
-                ${folder.photos.map(photo => `
-                    <div class="gallery-item" onclick="openLightbox('${photo.url}')">
+                ${folder.photos.map((photo, index) => `
+                    <div class="gallery-item" onclick="openLightbox(${index})">
                         <img src="${photo.url}" alt="Gallery photo" loading="lazy">
                     </div>
                 `).join('')}
@@ -78,31 +82,82 @@ function showFolder(folderId) {
     }
 }
 
-// Lightbox functionality
-function openLightbox(imageUrl) {
+// Lightbox functionality with arrow navigation
+function openLightbox(photoIndex) {
+    if (currentPhotos.length === 0 || photoIndex < 0 || photoIndex >= currentPhotos.length) {
+        return;
+    }
+
     const lightbox = document.createElement('div');
     lightbox.className = 'lightbox active';
+    const imageUrl = currentPhotos[photoIndex].url;
+    
     lightbox.innerHTML = `
         <div class="lightbox-content">
             <span class="lightbox-close" onclick="this.closest('.lightbox').remove()">&times;</span>
             <img src="${imageUrl}" alt="Full size" class="lightbox-image">
+            ${currentPhotos.length > 1 ? `
+                <span class="lightbox-nav prev" onclick="navigateLightbox(-1)">&lt;</span>
+                <span class="lightbox-nav next" onclick="navigateLightbox(1)">&gt;</span>
+                <span class="lightbox-counter">${photoIndex + 1} / ${currentPhotos.length}</span>
+            ` : ''}
         </div>
     `;
     document.body.appendChild(lightbox);
+
+    // Store current index in lightbox element
+    lightbox.dataset.currentIndex = photoIndex;
 
     // Close on background click
     lightbox.onclick = (e) => {
         if (e.target === lightbox) lightbox.remove();
     };
 
-    // Close on Escape key
-    const handleEscape = (e) => {
+    // Close on Escape key or navigate with arrow keys
+    const handleKeyDown = (e) => {
+        const lb = document.querySelector('.lightbox.active');
+        if (!lb) {
+            document.removeEventListener('keydown', handleKeyDown);
+            return;
+        }
+
         if (e.key === 'Escape') {
-            lightbox.remove();
-            document.removeEventListener('keydown', handleEscape);
+            lb.remove();
+            document.removeEventListener('keydown', handleKeyDown);
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            navigateLightbox(-1);
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            navigateLightbox(1);
         }
     };
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleKeyDown);
+}
+
+function navigateLightbox(direction) {
+    const lightbox = document.querySelector('.lightbox.active');
+    if (!lightbox) return;
+
+    let currentIndex = parseInt(lightbox.dataset.currentIndex);
+    let newIndex = currentIndex + direction;
+
+    if (newIndex < 0) {
+        newIndex = currentPhotos.length - 1;
+    } else if (newIndex >= currentPhotos.length) {
+        newIndex = 0;
+    }
+
+    const newImageUrl = currentPhotos[newIndex].url;
+    const img = lightbox.querySelector('.lightbox-image');
+    const counter = lightbox.querySelector('.lightbox-counter');
+    
+    img.src = newImageUrl;
+    lightbox.dataset.currentIndex = newIndex;
+    
+    if (counter) {
+        counter.textContent = `${newIndex + 1} / ${currentPhotos.length}`;
+    }
 }
 
 function escapeHtml(text) {
