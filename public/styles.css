@@ -47,11 +47,17 @@ body {
     padding: 0.5rem 1rem;
     border-radius: 4px;
     transition: background-color 0.3s, color 0.3s;
+    border-bottom: 3px solid transparent;
 }
 
 .nav-link:hover {
     background-color: #f0f0f0;
     color: #004999;
+}
+
+.nav-link.active {
+    color: #667eea;
+    border-bottom-color: #667eea;
 }
 
 .gallery-container {
@@ -63,14 +69,25 @@ body {
 .gallery {
     display: flex;
     flex-direction: column;
-    gap: 3rem;
+    gap: 1rem;
 }
 
-.folder-section {
-    scroll-margin-top: 80px;
+.folder-section,
+.folder-view {
+    animation: fadeIn 0.3s ease-in;
 }
 
-.folder-section h2 {
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.folder-section h2,
+.folder-view h2 {
     font-size: 1.8rem;
     margin-bottom: 1.5rem;
     color: #333;

@@ -64,6 +64,18 @@ async function loadFolders() {
     try {
         const response = await fetch('/api/folders');
         folders = await response.json();
+        
+        // Get photo count for each folder
+        folders = await Promise.all(folders.map(async (folder) => {
+            try {
+                const photosResponse = await fetch(`/api/photos/folder/${folder.id}`);
+                const photos = await photosResponse.json();
+                return { ...folder, photoCount: photos.length };
+            } catch (error) {
+                return { ...folder, photoCount: 0 };
+            }
+        }));
+        
         displayFolders();
         updateFolderSelect();
     } catch (error) {
@@ -89,7 +101,7 @@ function displayFolders() {
                     <button onclick="deleteFolder('${folder.id}')" class="btn-delete" title="Delete">🗑️</button>
                 </div>
             </div>
-            <button onclick="viewFolderPhotos('${folder.id}')" class="btn-view">View Photos</button>
+            <button onclick="viewFolderPhotos('${folder.id}')" class="btn-view">View Photos (${folder.photoCount || 0})</button>
         </div>
     `).join('');
 }
@@ -280,12 +292,13 @@ async function handleUpload(event) {
 
     const uploadBtn = event.target.querySelector('.upload-btn');
     uploadBtn.disabled = true;
-    uploadBtn.textContent = `Uploading 0/${selectedFiles.length}...`;
 
     let uploadedCount = 0;
     let failedCount = 0;
+    const totalFiles = selectedFiles.length;
 
-    for (const file of selectedFiles) {
+    for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
         try {
             const formData = new FormData();
             formData.append('image', file);
@@ -300,27 +313,33 @@ async function handleUpload(event) {
             if (response.ok) {
                 uploadedCount++;
             } else {
+                console.error('Upload failed for:', file.name);
                 failedCount++;
             }
-            uploadBtn.textContent = `Uploading ${uploadedCount + failedCount}/${selectedFiles.length}...`;
         } catch (error) {
-            console.error('Upload error:', error);
+            console.error('Upload error for', file.name, error);
             failedCount++;
         }
+        uploadBtn.textContent = `Uploading ${uploadedCount + failedCount}/${totalFiles}...`;
     }
+
+    // Clear form and preview after all uploads
+    document.getElementById('photo-file').value = '';
+    document.getElementById('file-name').textContent = 'No files selected';
+    document.getElementById('preview-container').innerHTML = '';
+    selectedFiles = [];
 
     if (failedCount === 0) {
         showMessage(`All ${uploadedCount} photos uploaded successfully!`, 'success', 'upload-message');
-        document.getElementById('photo-file').value = '';
-        document.getElementById('file-name').textContent = 'No files selected';
-        document.getElementById('preview-container').innerHTML = '';
-        selectedFiles = [];
     } else {
         showMessage(`${uploadedCount} uploaded, ${failedCount} failed`, 'error', 'upload-message');
     }
 
     uploadBtn.disabled = false;
     uploadBtn.textContent = 'Upload Photos';
+    
+    // Reload folders to update photo counts
+    loadFolders();
 }
 
 async function deletePhoto(photoId) {

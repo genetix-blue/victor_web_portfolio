@@ -1,3 +1,6 @@
+let allFolders = [];
+let currentFolderId = null;
+
 // Load and display folders with their photos
 async function loadGallery() {
     try {
@@ -5,18 +8,22 @@ async function loadGallery() {
         const folders = await response.json();
         
         // Load all photos for each folder
-        const foldersWithPhotos = await Promise.all(folders.map(async (folder) => {
+        allFolders = await Promise.all(folders.map(async (folder) => {
             try {
                 const photosResponse = await fetch(`/api/photos/folder/${folder.id}`);
                 const photos = await photosResponse.json();
-                return { ...folder, photos };
+                return { ...folder, photos, photoCount: photos.length };
             } catch (error) {
-                return { ...folder, photos: [] };
+                return { ...folder, photos: [], photoCount: 0 };
             }
         }));
 
-        displayNavLinks(foldersWithPhotos);
-        displayFolderSections(foldersWithPhotos);
+        displayNavLinks(allFolders);
+        
+        // Show first folder by default
+        if (allFolders.length > 0) {
+            showFolder(allFolders[0].id);
+        }
     } catch (error) {
         console.error('Error loading gallery:', error);
         document.getElementById('gallery').innerHTML = '<p class="loading">Error loading gallery</p>';
@@ -32,44 +39,43 @@ function displayNavLinks(folders) {
     }
 
     navLinks.innerHTML = folders.map(folder => `
-        <a href="#folder-${folder.id}" class="nav-link">${escapeHtml(folder.name)}</a>
+        <a href="#" onclick="showFolder('${folder.id}'); return false;" class="nav-link" id="link-${folder.id}">
+            ${escapeHtml(folder.name)}
+        </a>
     `).join('');
 }
 
-function displayFolderSections(folders) {
+function showFolder(folderId) {
+    currentFolderId = folderId;
+    const folder = allFolders.find(f => f.id === folderId);
+    
+    if (!folder) return;
+
+    // Update active link
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+    const activeLink = document.getElementById(`link-${folderId}`);
+    if (activeLink) activeLink.classList.add('active');
+
+    // Display folder content
     const gallery = document.getElementById('gallery');
     
-    if (folders.length === 0) {
-        gallery.innerHTML = '<p class="loading">No folders yet</p>';
-        return;
-    }
-
-    gallery.innerHTML = folders.map(folder => `
-        <section class="folder-section" id="folder-${folder.id}">
+    if (folder.photos.length === 0) {
+        gallery.innerHTML = `<div class="folder-view">
             <h2>${escapeHtml(folder.name)}</h2>
-            ${folder.photos.length === 0 
-                ? '<p class="empty-folder">No photos in this folder</p>' 
-                : `<div class="photos-grid">
-                    ${folder.photos.map(photo => `
-                        <div class="gallery-item" onclick="openLightbox('${photo.url}')">
-                            <img src="${photo.url}" alt="Gallery photo" loading="lazy">
-                        </div>
-                    `).join('')}
-                </div>`
-            }
-        </section>
-    `).join('');
-
-    // Add smooth scroll behavior
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const target = document.querySelector(link.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth' });
-            }
-        });
-    });
+            <p class="empty-folder">No photos in this folder</p>
+        </div>`;
+    } else {
+        gallery.innerHTML = `<div class="folder-view">
+            <h2>${escapeHtml(folder.name)}</h2>
+            <div class="photos-grid">
+                ${folder.photos.map(photo => `
+                    <div class="gallery-item" onclick="openLightbox('${photo.url}')">
+                        <img src="${photo.url}" alt="Gallery photo" loading="lazy">
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    }
 }
 
 // Lightbox functionality
