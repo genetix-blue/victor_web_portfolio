@@ -181,7 +181,7 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
 
     // Save metadata to database
     const photoId = Date.now().toString();
-    const { data: photoData, error: dbError } = await supabase
+    const { data: photoData, error: dbError } = await supabaseAdmin
       .from('photos')
       .insert([
         {
@@ -217,7 +217,7 @@ app.delete('/api/admin/photos/:id', async (req, res) => {
 
   try {
     // Get photo from database
-    const { data: photo, error: selectError } = await supabase
+    const { data: photo, error: selectError } = await supabaseAdmin
       .from('photos')
       .select('*')
       .eq('id', id)
@@ -241,7 +241,7 @@ app.delete('/api/admin/photos/:id', async (req, res) => {
     }
 
     // Delete from database
-    const { error: deleteDbError } = await supabase
+    const { error: deleteDbError } = await supabaseAdmin
       .from('photos')
       .delete()
       .eq('id', id);
@@ -267,7 +267,7 @@ app.post('/api/admin/photos/reorder', async (req, res) => {
   try {
     // Update order_index for each photo
     for (let i = 0; i < order.length; i++) {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('photos')
         .update({ order_index: i })
         .eq('id', order[i]);
