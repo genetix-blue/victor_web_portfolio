@@ -15,6 +15,7 @@ app.use(express.static('public'));
 // Initialize Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing Supabase credentials. Please set SUPABASE_URL and SUPABASE_ANON_KEY in .env');
@@ -22,6 +23,15 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Create admin client with service role key for storage operations
+let supabaseAdmin;
+if (supabaseServiceKey) {
+  supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+} else {
+  console.warn('⚠️  SUPABASE_SERVICE_ROLE_KEY not set. Storage uploads will use anon key.');
+  supabaseAdmin = supabase;
+}
 
 // Configure multer for memory storage (will upload to Supabase)
 const storage = multer.memoryStorage();
@@ -134,17 +144,24 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
   try {
     const fileName = `${Date.now()}-${req.file.originalname}`;
     
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Upload to Supabase Storage using admin key (has full permissions)
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('photos')
       .upload(`public/${fileName}`, req.file.buffer, {
         contentType: req.file.mimetype,
+        upsert: true,
+        cacheControl: '3600'
       });
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
-      return res.status(500).json({ error: 'Failed to upload image' });
+      console.error('Upload error message:', uploadError.message);
+      console.error('Upload error status:', uploadError.status);
+      console.error('Full error details:', JSON.stringify(uploadError, null, 2));
+      return res.status(500).json({ error: `Failed to upload image: ${uploadError.message}` });
     }
+    
+    console.log('Upload successful:', uploadData);
 
     // Get the public URL
     const { data: { publicUrl } } = supabase.storage
@@ -214,7 +231,7 @@ app.delete('/api/admin/photos/:id', async (req, res) => {
     const filename = photo.filename;
 
     // Delete from storage
-    const { error: deleteStorageError } = await supabase.storage
+    const { error: deleteStorageError } = await supabaseAdmin.storage
       .from('photos')
       .remove([`public/${filename}`]);
 
