@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+    <div id="login-container" class="login-container">
+        <div class="login-box">
+            <h1>Admin Login</h1>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <input 
+                    type="password" 
+                    id="password" 
+                    placeholder="Enter admin password" 
+                    required
+                    autofocus
+                >
+                <button type="submit">Login</button>
+            </form>
+            <p id="login-error" class="error-message"></p>
+        </div>
+    </div>
+
+    <div id="admin-panel" class="admin-panel hidden">
+        <nav class="admin-navbar">
+            <h1>Photo Gallery Admin</h1>
+            <button onclick="logout()" class="logout-btn">Logout</button>
+        </nav>
+
+        <div class="admin-content">
+            <section class="upload-section">
+                <h2>Upload Photo</h2>
+                <form id="upload-form" onsubmit="handleUpload(event)">
+                    <div class="file-input-wrapper">
+                        <input 
+                            type="file" 
+                            id="photo-file" 
+                            accept="image/*" 
+                            required
+                            onchange="updateFileName(event)"
+                        >
+                        <label for="photo-file">Choose Image</label>
+                        <span id="file-name">No file selected</span>
+                    </div>
+                    <button type="submit" class="upload-btn">Upload Photo</button>
+                </form>
+                <p id="upload-message" class="message"></p>
+            </section>
+
+            <section class="photos-section">
+                <h2>Manage Photos</h2>
+                <div id="photos-list" class="photos-list">
+                    <!-- Photos will be loaded here -->
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
