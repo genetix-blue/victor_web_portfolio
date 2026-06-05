@@ -31,9 +31,33 @@
         </nav>
 
         <div class="admin-content">
+            <section class="folders-section">
+                <h2>Folders</h2>
+                <div class="folder-controls">
+                    <div class="new-folder-form">
+                        <input 
+                            type="text" 
+                            id="new-folder-name" 
+                            placeholder="New folder name"
+                        >
+                        <button onclick="createFolder()" class="btn-primary">Create Folder</button>
+                    </div>
+                    <p id="folder-message" class="message"></p>
+                </div>
+                <div id="folders-list" class="folders-list">
+                    <!-- Folders will be loaded here -->
+                </div>
+            </section>
+
             <section class="upload-section">
                 <h2>Upload Photo</h2>
                 <form id="upload-form" onsubmit="handleUpload(event)">
+                    <div>
+                        <label for="folder-select">Select Folder:</label>
+                        <select id="folder-select" required>
+                            <option value="">-- Choose a folder --</option>
+                        </select>
+                    </div>
                     <div class="file-input-wrapper">
                         <input 
                             type="file" 
@@ -48,13 +72,6 @@
                     <button type="submit" class="upload-btn">Upload Photo</button>
                 </form>
                 <p id="upload-message" class="message"></p>
-            </section>
-
-            <section class="photos-section">
-                <h2>Manage Photos</h2>
-                <div id="photos-list" class="photos-list">
-                    <!-- Photos will be loaded here -->
-                </div>
             </section>
         </div>
     </div>

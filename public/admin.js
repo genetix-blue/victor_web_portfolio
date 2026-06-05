@@ -1,11 +1,12 @@
 let adminToken = null;
+let folders = [];
 
 // Check if already logged in
 window.addEventListener('DOMContentLoaded', () => {
     adminToken = sessionStorage.getItem('adminToken');
     if (adminToken) {
         showAdminPanel();
-        loadPhotos();
+        loadFolders();
     } else {
         showLoginPage();
     }
@@ -40,7 +41,7 @@ async function handleLogin(event) {
             document.getElementById('password').value = '';
             document.getElementById('login-error').textContent = '';
             showAdminPanel();
-            loadPhotos();
+            loadFolders();
         } else {
             document.getElementById('login-error').textContent = 'Invalid password';
         }
@@ -69,20 +70,191 @@ function updateFileName(event) {
     }
 }
 
+async function loadFolders() {
+    try {
+        const response = await fetch('/api/folders');
+        folders = await response.json();
+        displayFolders();
+        updateFolderSelect();
+    } catch (error) {
+        console.error('Error loading folders:', error);
+        showMessage('Error loading folders', 'error', 'folder-message');
+    }
+}
+
+function displayFolders() {
+    const foldersList = document.getElementById('folders-list');
+    
+    if (folders.length === 0) {
+        foldersList.innerHTML = '<p class="empty">No folders yet. Create one to get started!</p>';
+        return;
+    }
+
+    foldersList.innerHTML = folders.map(folder => `
+        <div class="folder-item">
+            <div class="folder-header">
+                <h3>${escapeHtml(folder.name)}</h3>
+                <div class="folder-actions">
+                    <button onclick="renameFolder('${folder.id}')" class="btn-edit" title="Rename">✏️</button>
+                    <button onclick="deleteFolder('${folder.id}')" class="btn-delete" title="Delete">🗑️</button>
+                </div>
+            </div>
+            <button onclick="viewFolderPhotos('${folder.id}')" class="btn-view">View Photos (${folder.photo_count || 0})</button>
+        </div>
+    `).join('');
+}
+
+function updateFolderSelect() {
+    const select = document.getElementById('folder-select');
+    const currentValue = select.value;
+    
+    select.innerHTML = '<option value="">-- Choose a folder --</option>' + 
+        folders.map(folder => `<option value="${folder.id}">${escapeHtml(folder.name)}</option>`).join('');
+    
+    select.value = currentValue;
+}
+
+async function createFolder() {
+    const nameInput = document.getElementById('new-folder-name');
+    const name = nameInput.value.trim();
+    
+    if (!name) {
+        showMessage('Folder name cannot be empty', 'error', 'folder-message');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/admin/folders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: adminToken, name })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showMessage('Folder created successfully!', 'success', 'folder-message');
+            nameInput.value = '';
+            loadFolders();
+        } else {
+            showMessage(data.error || 'Failed to create folder', 'error', 'folder-message');
+        }
+    } catch (error) {
+        console.error('Create folder error:', error);
+        showMessage('Error creating folder', 'error', 'folder-message');
+    }
+}
+
+async function renameFolder(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    const newName = prompt('Enter new folder name:', folder.name);
+    if (!newName || !newName.trim()) return;
+
+    try {
+        const response = await fetch(`/api/admin/folders/${folderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: adminToken, name: newName })
+        });
+
+        if (response.ok) {
+            showMessage('Folder renamed successfully!', 'success', 'folder-message');
+            loadFolders();
+        } else {
+            const data = await response.json();
+            showMessage(data.error || 'Failed to rename folder', 'error', 'folder-message');
+        }
+    } catch (error) {
+        console.error('Rename folder error:', error);
+        showMessage('Error renaming folder', 'error', 'folder-message');
+    }
+}
+
+async function deleteFolder(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    if (!confirm(`Are you sure you want to delete "${folder.name}"? All photos in this folder will also be deleted.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/admin/folders/${folderId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: adminToken })
+        });
+
+        if (response.ok) {
+            showMessage('Folder deleted successfully!', 'success', 'folder-message');
+            loadFolders();
+        } else {
+            const data = await response.json();
+            showMessage(data.error || 'Failed to delete folder', 'error', 'folder-message');
+        }
+    } catch (error) {
+        console.error('Delete folder error:', error);
+        showMessage('Error deleting folder', 'error', 'folder-message');
+    }
+}
+
+async function viewFolderPhotos(folderId) {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+
+    try {
+        const response = await fetch(`/api/photos/folder/${folderId}`);
+        const photos = await response.json();
+
+        let html = `<div class="modal" onclick="if(event.target===this) this.remove()">
+            <div class="modal-content">
+                <h2>${escapeHtml(folder.name)} - Photos</h2>
+                <button onclick="this.closest('.modal').remove()" class="btn-close">Close</button>`;
+
+        if (photos.length === 0) {
+            html += '<p>No photos in this folder</p>';
+        } else {
+            html += '<div class="photos-grid">' + photos.map(photo => `
+                <div class="photo-item">
+                    <img src="${photo.url}" alt="Photo" loading="lazy">
+                    <button onclick="deletePhoto('${photo.id}')" class="btn-delete-photo">Delete</button>
+                </div>
+            `).join('') + '</div>';
+        }
+
+        html += '</div></div>';
+        const modal = document.createElement('div');
+        modal.innerHTML = html;
+        document.body.appendChild(modal);
+    } catch (error) {
+        console.error('Error loading folder photos:', error);
+        showMessage('Error loading photos', 'error', 'folder-message');
+    }
+}
+
 async function handleUpload(event) {
     event.preventDefault();
     
+    const folderId = document.getElementById('folder-select').value;
+    if (!folderId) {
+        showMessage('Please select a folder', 'error', 'upload-message');
+        return;
+    }
+
     const fileInput = document.getElementById('photo-file');
     const file = fileInput.files[0];
     
     if (!file) {
-        showMessage('Please select a file', 'error');
+        showMessage('Please select a file', 'error', 'upload-message');
         return;
     }
 
     const formData = new FormData();
     formData.append('image', file);
     formData.append('token', adminToken);
+    formData.append('folderId', folderId);
 
     try {
         const uploadBtn = event.target.querySelector('.upload-btn');
@@ -95,84 +267,20 @@ async function handleUpload(event) {
         });
 
         if (response.ok) {
-            showMessage('Photo uploaded successfully!', 'success');
+            showMessage('Photo uploaded successfully!', 'success', 'upload-message');
             fileInput.value = '';
             document.getElementById('file-name').textContent = 'No file selected';
-            loadPhotos();
         } else {
-            const error = await response.json();
-            showMessage(error.error || 'Upload failed', 'error');
+            const data = await response.json();
+            showMessage(data.error || 'Failed to upload photo', 'error', 'upload-message');
         }
     } catch (error) {
         console.error('Upload error:', error);
-        showMessage('Upload error', 'error');
+        showMessage('Upload failed', 'error', 'upload-message');
     } finally {
         const uploadBtn = event.target.querySelector('.upload-btn');
         uploadBtn.disabled = false;
         uploadBtn.textContent = 'Upload Photo';
-    }
-}
-
-async function loadPhotos() {
-    try {
-        const response = await fetch('/api/photos');
-        const photos = await response.json();
-        displayPhotos(photos);
-    } catch (error) {
-        console.error('Error loading photos:', error);
-    }
-}
-
-function displayPhotos(photos) {
-    const photosList = document.getElementById('photos-list');
-
-    if (photos.length === 0) {
-        photosList.innerHTML = '<div class="empty-message">No photos yet. Upload your first photo!</div>';
-        return;
-    }
-
-    photosList.innerHTML = photos.map((photo, index) => `
-        <div class="photo-item">
-            <img src="${photo.url}" alt="Gallery photo" class="photo-thumbnail">
-            <div class="photo-actions">
-                ${index > 0 ? `<button class="move-up-btn" onclick="movePhoto('${photo.id}', 'up')">↑ Up</button>` : ''}
-                ${index < photos.length - 1 ? `<button class="move-down-btn" onclick="movePhoto('${photo.id}', 'down')">Down ↓</button>` : ''}
-                <button class="delete-btn" onclick="deletePhoto('${photo.id}')">Delete</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-async function movePhoto(photoId, direction) {
-    try {
-        const response = await fetch('/api/photos');
-        const photos = await response.json();
-        
-        const currentIndex = photos.findIndex(p => p.id === photoId);
-        if (currentIndex === -1) return;
-
-        if (direction === 'up' && currentIndex > 0) {
-            [photos[currentIndex], photos[currentIndex - 1]] = [photos[currentIndex - 1], photos[currentIndex]];
-        } else if (direction === 'down' && currentIndex < photos.length - 1) {
-            [photos[currentIndex], photos[currentIndex + 1]] = [photos[currentIndex + 1], photos[currentIndex]];
-        }
-
-        const order = photos.map(p => p.id);
-        
-        const reorderResponse = await fetch('/api/admin/photos/reorder', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: adminToken, order })
-        });
-
-        if (reorderResponse.ok) {
-            loadPhotos();
-        } else {
-            showMessage('Failed to reorder photos', 'error');
-        }
-    } catch (error) {
-        console.error('Reorder error:', error);
-        showMessage('Reorder error', 'error');
     }
 }
 
@@ -189,23 +297,34 @@ async function deletePhoto(photoId) {
         });
 
         if (response.ok) {
-            showMessage('Photo deleted successfully!', 'success');
-            loadPhotos();
+            showMessage('Photo deleted successfully!', 'success', 'upload-message');
+            document.querySelector('.modal')?.remove();
+            loadFolders();
         } else {
-            showMessage('Failed to delete photo', 'error');
+            const data = await response.json();
+            showMessage(data.error || 'Failed to delete photo', 'error', 'upload-message');
         }
     } catch (error) {
-        console.error('Delete error:', error);
-        showMessage('Delete error', 'error');
+        console.error('Delete photo error:', error);
+        showMessage('Error deleting photo', 'error', 'upload-message');
     }
 }
 
-function showMessage(text, type) {
-    const messageEl = document.getElementById('upload-message');
-    messageEl.textContent = text;
-    messageEl.className = `message show ${type}`;
+function showMessage(message, type, elementId) {
+    const element = document.getElementById(elementId || 'upload-message');
+    element.textContent = message;
+    element.className = `message ${type}`;
     
-    setTimeout(() => {
-        messageEl.classList.remove('show');
-    }, 3000);
+    if (type === 'success') {
+        setTimeout(() => {
+            element.textContent = '';
+            element.className = 'message';
+        }, 3000);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }

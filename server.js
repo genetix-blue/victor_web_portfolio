@@ -50,21 +50,42 @@ const upload = multer({
 // Initialize database tables
 async function initializeDatabase() {
   try {
-    // Check if photos table exists by trying to query it
-    const { data, error } = await supabase
-      .from('photos')
+    // Check if folders table exists
+    const { data: foldersData, error: foldersError } = await supabase
+      .from('folders')
       .select('id')
       .limit(1);
 
-    if (error && error.code === 'PGRST116') {
-      // Table doesn't exist
-      console.log('⚠️  Photos table not found. Creating table...');
+    if (foldersError && foldersError.code === 'PGRST116') {
+      console.log('⚠️  Folders table not found. Creating table...');
       console.log('\nPlease create the following table in Supabase SQL Editor:\n');
       console.log(`
+CREATE TABLE public.folders (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  order_index INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.folders ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read" ON public.folders
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow public insert" ON public.folders
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public update" ON public.folders
+  FOR UPDATE USING (true);
+
+CREATE POLICY "Allow public delete" ON public.folders
+  FOR DELETE USING (true);
+
 CREATE TABLE public.photos (
   id TEXT PRIMARY KEY,
   filename TEXT NOT NULL,
   url TEXT NOT NULL,
+  folder_id TEXT REFERENCES public.folders(id) ON DELETE CASCADE,
   order_index INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -73,9 +94,28 @@ ALTER TABLE public.photos ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public read" ON public.photos
   FOR SELECT USING (true);
+
+CREATE POLICY "Allow public insert" ON public.photos
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow public update" ON public.photos
+  FOR UPDATE USING (true);
+
+CREATE POLICY "Allow public delete" ON public.photos
+  FOR DELETE USING (true);
       `);
       console.log('\nThen create a storage bucket named "photos"\n');
-    } else if (!error) {
+    } else if (!foldersError) {
+      console.log('✓ Folders table exists');
+    }
+
+    // Check if photos table exists
+    const { data: photosData, error: photosError } = await supabase
+      .from('photos')
+      .select('id')
+      .limit(1);
+
+    if (!photosError) {
       console.log('✓ Photos table exists');
     }
   } catch (err) {
@@ -85,6 +125,152 @@ CREATE POLICY "Allow public read" ON public.photos
 
 // Routes
 
+// Get all folders
+app.get('/api/folders', async (req, res) => {
+  try {
+    const { data: folders, error } = await supabase
+      .from('folders')
+      .select('*')
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: 'Failed to fetch folders' });
+    }
+
+    res.json(folders || []);
+  } catch (err) {
+    console.error('Error fetching folders:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Create folder (admin)
+app.post('/api/admin/folders', async (req, res) => {
+  const { token, name } = req.body;
+  if (token !== 'admin-token') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Folder name is required' });
+  }
+
+  try {
+    const folderId = Date.now().toString();
+    
+    // Get max order index
+    const { data: maxOrderData } = await supabaseAdmin
+      .from('folders')
+      .select('order_index')
+      .order('order_index', { ascending: false })
+      .limit(1);
+
+    const nextOrderIndex = (maxOrderData && maxOrderData.length > 0) 
+      ? maxOrderData[0].order_index + 1 
+      : 0;
+
+    const { data: folderData, error: dbError } = await supabaseAdmin
+      .from('folders')
+      .insert([{
+        id: folderId,
+        name: name.trim(),
+        order_index: nextOrderIndex
+      }])
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      return res.status(500).json({ error: 'Failed to create folder' });
+    }
+
+    res.json(folderData);
+  } catch (error) {
+    console.error('Create folder error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update folder (admin)
+app.put('/api/admin/folders/:id', async (req, res) => {
+  const { token, name } = req.body;
+  if (token !== 'admin-token') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Folder name is required' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const { data: folderData, error: dbError } = await supabaseAdmin
+      .from('folders')
+      .update({ name: name.trim() })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      return res.status(500).json({ error: 'Failed to update folder' });
+    }
+
+    res.json(folderData);
+  } catch (error) {
+    console.error('Update folder error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Delete folder (admin)
+app.delete('/api/admin/folders/:id', async (req, res) => {
+  const { token } = req.body;
+  if (token !== 'admin-token') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const { error: deleteError } = await supabaseAdmin
+      .from('folders')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      console.error('Database error:', deleteError);
+      return res.status(500).json({ error: 'Failed to delete folder' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete folder error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get photos by folder
+app.get('/api/photos/folder/:folderId', async (req, res) => {
+  try {
+    const { folderId } = req.params;
+    const { data: photos, error } = await supabase
+      .from('photos')
+      .select('*')
+      .eq('folder_id', folderId)
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: 'Failed to fetch photos' });
+    }
+
+    res.json(photos || []);
+  } catch (err) {
+    console.error('Error fetching photos:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Serve home page
 app.get('/', (req, res) => {
@@ -132,13 +318,17 @@ app.post('/api/admin/login', (req, res) => {
 
 // Add photo (admin)
 app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
-  const { token } = req.body;
+  const { token, folderId } = req.body;
   if (token !== 'admin-token') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  if (!folderId) {
+    return res.status(400).json({ error: 'Folder ID is required' });
   }
 
   try {
@@ -168,10 +358,11 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
       .from('photos')
       .getPublicUrl(`public/${fileName}`);
 
-    // Get max order index
-    const { data: maxOrderData } = await supabase
+    // Get max order index for this folder
+    const { data: maxOrderData } = await supabaseAdmin
       .from('photos')
       .select('order_index')
+      .eq('folder_id', folderId)
       .order('order_index', { ascending: false })
       .limit(1);
 
@@ -188,6 +379,7 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
           id: photoId,
           filename: fileName,
           url: publicUrl,
+          folder_id: folderId,
           order_index: nextOrderIndex
         }
       ])

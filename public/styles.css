@@ -90,6 +90,70 @@ body {
     grid-row: span 2;
 }
 
+/* Folder Cards */
+.folder-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    color: white;
+}
+
+.folder-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+}
+
+.folder-icon {
+    font-size: 2.5rem;
+}
+
+.folder-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+/* Folder View */
+.folder-view {
+    display: contents;
+}
+
+.back-btn {
+    grid-column: 1 / -1;
+    background-color: #f0f0f0;
+    border: 2px solid #333;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: background-color 0.3s, color 0.3s;
+    margin-bottom: 1rem;
+    width: fit-content;
+}
+
+.back-btn:hover {
+    background-color: #333;
+    color: white;
+}
+
+.photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+    grid-column: 1 / -1;
+}
+
 /* Loading state */
 .loading {
     text-align: center;
