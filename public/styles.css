@@ -25,6 +25,8 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .logo {
@@ -32,17 +34,24 @@ body {
     font-weight: 600;
 }
 
-.admin-link {
-    text-decoration: none;
-    color: #0066cc;
-    font-weight: 500;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    transition: background-color 0.3s;
+.nav-links {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
 }
 
-.admin-link:hover {
+.nav-link {
+    text-decoration: none;
+    color: #0066cc;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.nav-link:hover {
     background-color: #f0f0f0;
+    color: #004999;
 }
 
 .gallery-container {
@@ -52,10 +61,27 @@ body {
 }
 
 .gallery {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+}
+
+.folder-section {
+    scroll-margin-top: 80px;
+}
+
+.folder-section h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    color: #333;
+    padding-bottom: 1rem;
+    border-bottom: 3px solid #667eea;
+}
+
+.photos-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1rem;
-    grid-auto-rows: 250px;
 }
 
 .gallery-item {
@@ -79,79 +105,11 @@ body {
     display: block;
 }
 
-/* Masonry-like layout with varied sizes */
-.gallery-item:nth-child(3n) {
-    grid-column: span 2;
-    grid-row: span 2;
-}
-
-.gallery-item:nth-child(5n + 2) {
-    grid-column: span 1;
-    grid-row: span 2;
-}
-
-/* Folder Cards */
-.folder-card {
-    position: relative;
-    overflow: hidden;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 1rem;
+.empty-folder {
     text-align: center;
-    color: white;
-}
-
-.folder-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
-}
-
-.folder-icon {
-    font-size: 2.5rem;
-}
-
-.folder-card h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    word-break: break-word;
-}
-
-/* Folder View */
-.folder-view {
-    display: contents;
-}
-
-.back-btn {
-    grid-column: 1 / -1;
-    background-color: #f0f0f0;
-    border: 2px solid #333;
-    padding: 0.75rem 1.5rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.95rem;
-    font-weight: 600;
-    transition: background-color 0.3s, color 0.3s;
-    margin-bottom: 1rem;
-    width: fit-content;
-}
-
-.back-btn:hover {
-    background-color: #333;
-    color: white;
-}
-
-.photos-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1rem;
-    grid-column: 1 / -1;
+    color: #999;
+    font-style: italic;
+    padding: 2rem;
 }
 
 /* Loading state */

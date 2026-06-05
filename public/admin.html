@@ -50,7 +50,7 @@
             </section>
 
             <section class="upload-section">
-                <h2>Upload Photo</h2>
+                <h2>Upload Photos</h2>
                 <form id="upload-form" onsubmit="handleUpload(event)">
                     <div>
                         <label for="folder-select">Select Folder:</label>
@@ -63,14 +63,16 @@
                             type="file" 
                             id="photo-file" 
                             accept="image/*" 
+                            multiple
                             required
-                            onchange="updateFileName(event)"
+                            onchange="handleFileSelect(event)"
                         >
-                        <label for="photo-file">Choose Image</label>
-                        <span id="file-name">No file selected</span>
+                        <label for="photo-file">Choose Images</label>
+                        <span id="file-name">No files selected</span>
                     </div>
-                    <button type="submit" class="upload-btn">Upload Photo</button>
+                    <button type="submit" class="upload-btn">Upload Photos</button>
                 </form>
+                <div id="preview-container" class="preview-container"></div>
                 <p id="upload-message" class="message"></p>
             </section>
         </div>

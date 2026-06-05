@@ -1,16 +1,42 @@
-// Load and display folders
+// Load and display folders with their photos
 async function loadGallery() {
     try {
         const response = await fetch('/api/folders');
         const folders = await response.json();
-        displayFolders(folders);
+        
+        // Load all photos for each folder
+        const foldersWithPhotos = await Promise.all(folders.map(async (folder) => {
+            try {
+                const photosResponse = await fetch(`/api/photos/folder/${folder.id}`);
+                const photos = await photosResponse.json();
+                return { ...folder, photos };
+            } catch (error) {
+                return { ...folder, photos: [] };
+            }
+        }));
+
+        displayNavLinks(foldersWithPhotos);
+        displayFolderSections(foldersWithPhotos);
     } catch (error) {
-        console.error('Error loading folders:', error);
+        console.error('Error loading gallery:', error);
         document.getElementById('gallery').innerHTML = '<p class="loading">Error loading gallery</p>';
     }
 }
 
-function displayFolders(folders) {
+function displayNavLinks(folders) {
+    const navLinks = document.getElementById('nav-links');
+    
+    if (folders.length === 0) {
+        navLinks.innerHTML = '';
+        return;
+    }
+
+    navLinks.innerHTML = folders.map(folder => `
+        <a href="#folder-${folder.id}" class="nav-link">${escapeHtml(folder.name)}</a>
+    `).join('');
+}
+
+function displayFolderSections(folders) {
     const gallery = document.getElementById('gallery');
     
     if (folders.length === 0) {
@@ -19,47 +45,31 @@ function displayFolders(folders) {
     }
 
     gallery.innerHTML = folders.map(folder => `
-        <div class="folder-card" onclick="openFolder('${folder.id}', '${escapeHtml(folder.name)}')">
-            <div class="folder-icon">📁</div>
-            <h3>${escapeHtml(folder.name)}</h3>
-        </div>
+        <section class="folder-section" id="folder-${folder.id}">
+            <h2>${escapeHtml(folder.name)}</h2>
+            ${folder.photos.length === 0 
+                ? '<p class="empty-folder">No photos in this folder</p>' 
+                : `<div class="photos-grid">
+                    ${folder.photos.map(photo => `
+                        <div class="gallery-item" onclick="openLightbox('${photo.url}')">
+                            <img src="${photo.url}" alt="Gallery photo" loading="lazy">
+                        </div>
+                    `).join('')}
+                </div>`
+            }
+        </section>
     `).join('');
-}
 
-async function openFolder(folderId, folderName) {
-    try {
-        const response = await fetch(`/api/photos/folder/${folderId}`);
-        const photos = await response.json();
-        displayFolderPhotos(photos, folderName, folderId);
-    } catch (error) {
-        console.error('Error loading folder photos:', error);
-        alert('Error loading photos');
-    }
-}
-
-function displayFolderPhotos(photos, folderName, folderId) {
-    const gallery = document.getElementById('gallery');
-    
-    if (photos.length === 0) {
-        gallery.innerHTML = `<div class="folder-view">
-            <button onclick="loadGallery()" class="back-btn">← Back to Folders</button>
-            <h2>${escapeHtml(folderName)}</h2>
-            <p class="loading">No photos in this folder</p>
-        </div>`;
-        return;
-    }
-
-    gallery.innerHTML = `<div class="folder-view">
-        <button onclick="loadGallery()" class="back-btn">← Back to Folders</button>
-        <h2>${escapeHtml(folderName)}</h2>
-        <div class="photos-grid">
-            ${photos.map(photo => `
-                <div class="gallery-item" onclick="openLightbox('${photo.url}')">
-                    <img src="${photo.url}" alt="Gallery photo" loading="lazy">
-                </div>
-            `).join('')}
-        </div>
-    </div>`;
+    // Add smooth scroll behavior
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const target = document.querySelector(link.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
 }
 
 // Lightbox functionality
