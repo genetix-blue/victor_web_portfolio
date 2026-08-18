@@ -90,6 +90,16 @@ function displayNavLinks(folders) {
     }
 }
 
+function updateNavbarMode(isHome) {
+    const navbar = document.querySelector('.navbar');
+    if (!navbar) return;
+
+    navbar.classList.toggle('is-home', isHome);
+    navbar.classList.toggle('is-gallery', !isHome);
+    navbar.style.background = 'transparent';
+    navbar.style.boxShadow = 'none';
+}
+
 function showLandingSection() {
     const landingContainer = document.getElementById('landing-container');
     const galleryContainer = document.getElementById('gallery-container');
@@ -101,6 +111,8 @@ function showLandingSection() {
     if (galleryContainer) {
         galleryContainer.style.display = 'none';
     }
+
+    updateNavbarMode(true);
 
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     const homeLink = document.getElementById('link-home');
@@ -123,6 +135,8 @@ function showFolder(folderId) {
     if (galleryContainer) {
         galleryContainer.style.display = 'block';
     }
+
+    updateNavbarMode(false);
 
     // Store current photos for arrow navigation
     currentPhotos = folder.photos;
