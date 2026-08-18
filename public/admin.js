@@ -104,6 +104,54 @@ function displayFolders() {
             <button onclick="viewFolderPhotos('${folder.id}')" class="btn-view">View Photos (<span class="count-val">${folder.photoCount || 0}</span>)</button>
         </div>
     `).join('');
+
+    setupFolderSorting();
+}
+
+function setupFolderSorting() {
+    const foldersList = document.getElementById('folders-list');
+    if (!foldersList || foldersList.dataset.sortableBound === 'true') return;
+
+    new Sortable(foldersList, {
+        animation: 150,
+        handle: '.folder-header',
+        ghostClass: 'folder-item-ghost',
+        chosenClass: 'folder-item-chosen',
+        dragClass: 'folder-item-dragging'
+    });
+
+    foldersList.dataset.sortableBound = 'true';
+}
+
+async function saveFolderOrder() {
+    const foldersList = document.getElementById('folders-list');
+    if (!foldersList) return;
+
+    const order = [...foldersList.querySelectorAll('.folder-item')].map((item, index) => ({
+        id: item.dataset.id,
+        order: index
+    }));
+
+    if (order.length === 0) return;
+
+    try {
+        const response = await fetch('/api/admin/folders/reorder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: adminToken, order })
+        });
+
+        if (response.ok) {
+            showMessage('Folder order saved successfully!', 'success', 'folder-message');
+            await loadFolders();
+        } else {
+            const data = await response.json();
+            showMessage(data.error || 'Failed to save folder order', 'error', 'folder-message');
+        }
+    } catch (error) {
+        console.error('Save folder order error:', error);
+        showMessage('Error saving folder order', 'error', 'folder-message');
+    }
 }
 
 function updateFolderSelect() {

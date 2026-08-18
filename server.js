@@ -225,6 +225,37 @@ app.put('/api/admin/folders/:id', async (req, res) => {
   }
 });
 
+// Reorder folders (admin)
+app.post('/api/admin/folders/reorder', async (req, res) => {
+  const { token, order } = req.body;
+  if (token !== 'admin-token') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!Array.isArray(order) || order.length === 0) {
+    return res.status(400).json({ error: 'Folder order is required' });
+  }
+
+  try {
+    for (const folder of order) {
+      const { error } = await supabaseAdmin
+        .from('folders')
+        .update({ order_index: folder.order })
+        .eq('id', folder.id);
+
+      if (error) {
+        console.error('Folder reorder error:', error);
+        return res.status(500).json({ error: 'Failed to update folder order' });
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Folder reorder handler error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete folder (admin)
 app.delete('/api/admin/folders/:id', async (req, res) => {
   const { token } = req.body;
