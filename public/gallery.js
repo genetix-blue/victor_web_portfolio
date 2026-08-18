@@ -2,6 +2,31 @@ let allFolders = [];
 let currentFolderId = null;
 let currentPhotos = [];
 
+async function loadLandingSection() {
+    const landingContainer = document.getElementById('landing-container');
+    if (!landingContainer) return;
+
+    try {
+        const response = await fetch('landing.html');
+        if (!response.ok) throw new Error('Landing file not found');
+
+        landingContainer.innerHTML = await response.text();
+
+        const viewGalleryButton = landingContainer.querySelector('.landing-button.primary');
+        if (viewGalleryButton && allFolders.length > 0) {
+            viewGalleryButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                showFolder(allFolders[0].id);
+            });
+        }
+
+        showLandingSection();
+    } catch (error) {
+        console.error('Error loading landing section:', error);
+        landingContainer.innerHTML = '<p class="loading">Landing section unavailable</p>';
+    }
+}
+
 // Load and display folders with their photos
 async function loadGallery() {
     try {
@@ -20,11 +45,18 @@ async function loadGallery() {
         }));
 
         displayNavLinks(allFolders);
-        
-        // Show first folder by default
+
         if (allFolders.length > 0) {
-            showFolder(allFolders[0].id);
+            const viewGalleryButton = document.querySelector('.landing-button.primary');
+            if (viewGalleryButton) {
+                viewGalleryButton.onclick = (event) => {
+                    event.preventDefault();
+                    showFolder(allFolders[0].id);
+                };
+            }
         }
+
+        showLandingSection();
     } catch (error) {
         console.error('Error loading gallery:', error);
         document.getElementById('gallery').innerHTML = '<p class="loading">Error loading gallery</p>';
@@ -33,17 +65,46 @@ async function loadGallery() {
 
 function displayNavLinks(folders) {
     const navLinks = document.getElementById('nav-links');
-    
+    const homeLink = `<a href="#landing" class="nav-link active" id="link-home">Inicio</a>`;
+
     if (folders.length === 0) {
-        navLinks.innerHTML = '';
+        navLinks.innerHTML = homeLink;
         return;
     }
 
-    navLinks.innerHTML = folders.map(folder => `
-        <a href="#" onclick="showFolder('${folder.id}'); return false;" class="nav-link" id="link-${folder.id}">
-            ${escapeHtml(folder.name)}
-        </a>
-    `).join('');
+    navLinks.innerHTML = [
+        homeLink,
+        ...folders.map(folder => `
+            <a href="#" onclick="showFolder('${folder.id}'); return false;" class="nav-link" id="link-${folder.id}">
+                ${escapeHtml(folder.name)}
+            </a>
+        `)
+    ].join('');
+
+    const homeNavLink = document.getElementById('link-home');
+    if (homeNavLink) {
+        homeNavLink.addEventListener('click', (event) => {
+            event.preventDefault();
+            showLandingSection();
+        });
+    }
+}
+
+function showLandingSection() {
+    const landingContainer = document.getElementById('landing-container');
+    const galleryContainer = document.getElementById('gallery-container');
+
+    if (landingContainer) {
+        landingContainer.style.display = 'block';
+    }
+
+    if (galleryContainer) {
+        galleryContainer.style.display = 'none';
+    }
+
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+    const homeLink = document.getElementById('link-home');
+    if (homeLink) homeLink.classList.add('active');
 }
 
 function showFolder(folderId) {
@@ -51,6 +112,17 @@ function showFolder(folderId) {
     const folder = allFolders.find(f => f.id === folderId);
     
     if (!folder) return;
+
+    const landingContainer = document.getElementById('landing-container');
+    const galleryContainer = document.getElementById('gallery-container');
+
+    if (landingContainer) {
+        landingContainer.style.display = 'none';
+    }
+
+    if (galleryContainer) {
+        galleryContainer.style.display = 'block';
+    }
 
     // Store current photos for arrow navigation
     currentPhotos = folder.photos;
@@ -204,8 +276,11 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Load gallery on page load
-document.addEventListener('DOMContentLoaded', loadGallery);
+// Load landing and gallery on page load
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadLandingSection();
+    await loadGallery();
+});
 
 const observer = new IntersectionObserver(
     (entries) => {
