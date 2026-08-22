@@ -65,7 +65,7 @@ async function loadGallery() {
 
 function displayNavLinks(folders) {
     const navLinks = document.getElementById('nav-links');
-    const homeLink = `<a href="#landing" class="nav-link active" id="link-home">Inicio</a>`;
+    const homeLink = `<a href="#landing" class="nav-link active" id="link-home">Home</a>`;
 
     if (folders.length === 0) {
         navLinks.innerHTML = homeLink;
@@ -113,6 +113,7 @@ function showLandingSection() {
     }
 
     updateNavbarMode(true);
+    document.body.classList.remove('gallery-view');
 
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     const homeLink = document.getElementById('link-home');
@@ -137,6 +138,7 @@ function showFolder(folderId) {
     }
 
     updateNavbarMode(false);
+    document.body.classList.add('gallery-view');
 
     // Store current photos for arrow navigation
     currentPhotos = folder.photos;
