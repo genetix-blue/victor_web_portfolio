@@ -12,6 +12,24 @@ async function loadLandingSection() {
 
         landingContainer.innerHTML = await response.text();
 
+        try {
+            const imageResponse = await fetch('/api/landing-images');
+            if (imageResponse.ok) {
+                const landingImages = await imageResponse.json();
+                const background = landingContainer.querySelector('.landing-background');
+                if (background && landingImages.length > 0) {
+                    background.replaceChildren(...landingImages.map(image => {
+                        const element = document.createElement('img');
+                        element.src = image.url;
+                        element.alt = '';
+                        return element;
+                    }));
+                }
+            }
+        } catch (imageError) {
+            console.warn('Managed landing images unavailable.', imageError);
+        }
+
         const viewGalleryButton = landingContainer.querySelector('.landing-button.primary');
         if (viewGalleryButton && allFolders.length > 0) {
             viewGalleryButton.addEventListener('click', (event) => {

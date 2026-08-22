@@ -1,6 +1,8 @@
 let adminToken = null;
 let folders = [];
 let selectedFiles = [];
+let landingImages = [];
+let selectedLandingFiles = [];
 
 // Check if already logged in
 window.addEventListener('DOMContentLoaded', () => {
@@ -8,6 +10,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (adminToken) {
         showAdminPanel();
         loadFolders();
+        loadLandingImages();
     } else {
         showLoginPage();
     }
@@ -43,6 +46,7 @@ async function handleLogin(event) {
             document.getElementById('login-error').textContent = '';
             showAdminPanel();
             loadFolders();
+            loadLandingImages();
         } else {
             document.getElementById('login-error').textContent = 'Invalid password';
         }
@@ -504,4 +508,138 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+async function loadLandingImages() {
+    try {
+        const response = await fetch('/api/landing-images');
+        if (!response.ok) throw new Error('Failed to load landing images');
+        landingImages = await response.json();
+        displayLandingImages();
+    } catch (error) {
+        console.error('Error loading landing images:', error);
+        showMessage('Error loading home page images', 'error', 'landing-message');
+    }
+}
+
+function displayLandingImages() {
+    const imagesList = document.getElementById('landing-images-list');
+    if (!imagesList) return;
+
+    if (landingImages.length === 0) {
+        imagesList.innerHTML = '<p class="empty">No home page images yet.</p>';
+        return;
+    }
+
+    imagesList.innerHTML = landingImages.map(image => `
+        <div class="landing-image-item" data-image-id="${image.id}">
+            <img src="${image.url}" alt="Home page image">
+            <button onclick="deleteLandingImage('${image.id}')" class="delete-btn">Delete</button>
+        </div>
+    `).join('');
+
+    if (!imagesList.dataset.sortableBound) {
+        new Sortable(imagesList, { animation: 150 });
+        imagesList.dataset.sortableBound = 'true';
+    }
+}
+
+function handleLandingFileSelect(event) {
+    selectedLandingFiles = Array.from(event.target.files);
+    document.getElementById('landing-file-name').textContent = selectedLandingFiles.length
+        ? `${selectedLandingFiles.length} file(s) selected`
+        : 'No files selected';
+    displayLandingPreview(selectedLandingFiles);
+}
+
+function displayLandingPreview(files) {
+    const previewContainer = document.getElementById('landing-preview-container');
+    if (!files.length) {
+        previewContainer.innerHTML = '';
+        return;
+    }
+
+    previewContainer.innerHTML = '<h3>Preview:</h3><div class="preview-grid">' + files.map((file, index) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const previewItem = previewContainer.querySelector(`[data-landing-file-index="${index}"]`);
+            if (previewItem) previewItem.innerHTML = `<img src="${event.target.result}" alt="Preview"><span class="preview-name">${escapeHtml(file.name)}</span>`;
+        };
+        reader.readAsDataURL(file);
+        return `<div class="preview-item" data-landing-file-index="${index}"><div class="preview-loader">Loading...</div></div>`;
+    }).join('') + '</div>';
+}
+
+async function handleLandingUpload(event) {
+    event.preventDefault();
+    if (!selectedLandingFiles.length) {
+        showMessage('Please select images', 'error', 'landing-message');
+        return;
+    }
+
+    const uploadButton = event.target.querySelector('.upload-btn');
+    uploadButton.disabled = true;
+    let uploadedCount = 0;
+
+    for (const file of selectedLandingFiles) {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('token', adminToken);
+        try {
+            const response = await fetch('/api/admin/landing-images', { method: 'POST', body: formData });
+            if (response.ok) uploadedCount++;
+        } catch (error) {
+            console.error('Landing image upload error:', error);
+        }
+    }
+
+    document.getElementById('landing-image-file').value = '';
+    document.getElementById('landing-file-name').textContent = 'No files selected';
+    document.getElementById('landing-preview-container').innerHTML = '';
+    selectedLandingFiles = [];
+    uploadButton.disabled = false;
+    showMessage(`${uploadedCount} home page image(s) uploaded`, 'success', 'landing-message');
+    await loadLandingImages();
+}
+
+async function deleteLandingImage(imageId) {
+    if (!confirm('Are you sure you want to delete this home page image?')) return;
+
+    try {
+        const response = await fetch(`/api/admin/landing-images/${imageId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: adminToken })
+        });
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to delete image');
+        }
+        await loadLandingImages();
+    } catch (error) {
+        console.error('Delete landing image error:', error);
+        showMessage(error.message, 'error', 'landing-message');
+    }
+}
+
+async function saveLandingImageOrder() {
+    const imagesList = document.getElementById('landing-images-list');
+    const order = [...imagesList.querySelectorAll('.landing-image-item')].map((item, index) => ({
+        id: item.dataset.imageId,
+        order: index
+    }));
+
+    try {
+        const response = await fetch('/api/admin/landing-images/reorder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: adminToken, order })
+        });
+        if (!response.ok) throw new Error('Failed to save image order');
+        showMessage('Home page image order saved!', 'success', 'landing-message');
+        await loadLandingImages();
+    } catch (error) {
+        console.error('Save landing image order error:', error);
+        showMessage(error.message, 'error', 'landing-message');
+    }
 }

@@ -52,6 +52,31 @@
                 </div>
             </section>
 
+            <section class="landing-images-section">
+                <div class="section-header-row">
+                    <h2>Home Page Images</h2>
+                    <button onclick="saveLandingImageOrder()" class="btn-primary btn-small" id="save-landing-order-btn">Save Order</button>
+                </div>
+                <form id="landing-upload-form" onsubmit="handleLandingUpload(event)">
+                    <div class="file-input-wrapper">
+                        <input
+                            type="file"
+                            id="landing-image-file"
+                            accept="image/*"
+                            multiple
+                            required
+                            onchange="handleLandingFileSelect(event)"
+                        >
+                        <label for="landing-image-file">Choose Home Page Images</label>
+                        <span id="landing-file-name">No files selected</span>
+                    </div>
+                    <button type="submit" class="upload-btn">Upload Home Images</button>
+                </form>
+                <div id="landing-preview-container" class="preview-container"></div>
+                <div id="landing-images-list" class="landing-images-list"></div>
+                <p id="landing-message" class="message"></p>
+            </section>
+
             <section class="upload-section">
                 <h2>Upload Photos</h2>
                 <form id="upload-form" onsubmit="handleUpload(event)">

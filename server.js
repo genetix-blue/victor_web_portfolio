@@ -119,6 +119,23 @@ CREATE POLICY "Allow public delete" ON public.photos
     if (!photosError) {
       console.log('✓ Photos table exists');
     }
+
+    const { error: landingImagesError } = await supabase
+      .from('landing_images')
+      .select('id')
+      .limit(1);
+
+    if (!landingImagesError) {
+      const { error: cleanupError } = await supabaseAdmin
+        .from('landing_images')
+        .delete()
+        .like('id', 'local-%');
+
+      if (cleanupError) {
+        console.error('Landing image cleanup error:', cleanupError);
+      }
+      console.log('✓ Landing images table exists');
+    }
   } catch (err) {
     console.error('Database initialization error:', err);
   }
@@ -333,6 +350,25 @@ app.get('/api/photos', async (req, res) => {
   }
 });
 
+// Get homepage images
+app.get('/api/landing-images', async (req, res) => {
+  try {
+    const { data: images, error } = await supabase
+      .from('landing_images')
+      .select('*')
+      .order('order_index', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ error: 'Failed to fetch landing images' });
+    }
+
+    res.json(images || []);
+  } catch (err) {
+    console.error('Error fetching landing images:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Admin login check
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
@@ -437,6 +473,70 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
   }
 });
 
+// Add homepage image (admin)
+app.post('/api/admin/landing-images', upload.single('image'), async (req, res) => {
+  const { token } = req.body;
+  if (token !== 'admin-token') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const webpBuffer = await sharp(req.file.buffer)
+      .webp({ quality: 85 })
+      .toBuffer();
+    const originalName = path.parse(req.file.originalname).name;
+    const fileName = `${Date.now()}-${originalName}.webp`;
+    const storagePath = `public/${fileName}`;
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('photos')
+      .upload(storagePath, webpBuffer, {
+        contentType: 'image/webp',
+        upsert: true,
+        cacheControl: '3600'
+      });
+
+    if (uploadError) {
+      return res.status(500).json({ error: `Failed to upload image: ${uploadError.message}` });
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('photos')
+      .getPublicUrl(storagePath);
+    const { data: maxOrderData } = await supabaseAdmin
+      .from('landing_images')
+      .select('order_index')
+      .order('order_index', { ascending: false })
+      .limit(1);
+    const nextOrderIndex = maxOrderData?.length ? maxOrderData[0].order_index + 1 : 0;
+
+    const { data: imageData, error: dbError } = await supabaseAdmin
+      .from('landing_images')
+      .insert([{
+        id: Date.now().toString(),
+        filename: fileName,
+        url: publicUrl,
+        order_index: nextOrderIndex,
+        storage_path: storagePath
+      }])
+      .select()
+      .single();
+
+    if (dbError) {
+      return res.status(500).json({ error: 'Failed to save landing image metadata' });
+    }
+
+    res.json(imageData);
+  } catch (error) {
+    console.error('Landing image upload error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Delete photo (admin)
 app.delete('/api/admin/photos/:id', async (req, res) => {
   const { token } = req.body;
@@ -488,6 +588,44 @@ app.delete('/api/admin/photos/:id', async (req, res) => {
   }
 });
 
+// Delete homepage image (admin)
+app.delete('/api/admin/landing-images/:id', async (req, res) => {
+  const { token } = req.body;
+  if (token !== 'admin-token') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { data: image, error: selectError } = await supabaseAdmin
+      .from('landing_images')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (selectError || !image) {
+      return res.status(404).json({ error: 'Landing image not found' });
+    }
+
+    if (image.storage_path) {
+      await supabaseAdmin.storage.from('photos').remove([image.storage_path]);
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('landing_images')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (deleteError) {
+      return res.status(500).json({ error: 'Failed to delete landing image' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Landing image delete error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Update photo order (admin)
 app.post('/api/admin/photos/reorder', async (req, res) => {
   const { token, order } = req.body;
@@ -513,6 +651,35 @@ app.post('/api/admin/photos/reorder', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Reorder handler error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update homepage image order (admin)
+app.post('/api/admin/landing-images/reorder', async (req, res) => {
+  const { token, order } = req.body;
+  if (token !== 'admin-token') {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!Array.isArray(order)) {
+    return res.status(400).json({ error: 'Image order is required' });
+  }
+
+  try {
+    for (const image of order) {
+      const { error } = await supabaseAdmin
+        .from('landing_images')
+        .update({ order_index: image.order })
+        .eq('id', image.id);
+
+      if (error) {
+        return res.status(500).json({ error: 'Failed to update landing image order' });
+      }
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Landing image reorder error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

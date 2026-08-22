@@ -48,6 +48,24 @@ CREATE POLICY "Allow public read" ON public.photos
   FOR SELECT USING (true);
 ```
 
+Also create the table used to manage the homepage images:
+
+```sql
+CREATE TABLE public.landing_images (
+  id TEXT PRIMARY KEY,
+  filename TEXT NOT NULL,
+  url TEXT NOT NULL,
+  order_index INTEGER DEFAULT 0,
+  storage_path TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.landing_images ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read" ON public.landing_images
+  FOR SELECT USING (true);
+```
+
 4. Click the **Execute** button or press `Ctrl+Enter`
 5. You should see "Success!" message
 
