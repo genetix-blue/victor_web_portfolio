@@ -27,36 +27,36 @@ async function loadLandingSection() {
     }
 }
 
-// Load and display folders with their photos
+// Load folder names first so the navigation is available immediately.
 async function loadGallery() {
     try {
         const response = await fetch('/api/folders');
         const folders = await response.json();
-        
-        // Load all photos for each folder
-        allFolders = await Promise.all(folders.map(async (folder) => {
+
+        allFolders = folders.map(folder => ({
+            ...folder,
+            photos: [],
+            photoCount: 0,
+            photosLoaded: false
+        }));
+        displayNavLinks(allFolders);
+        showLandingSection();
+
+        Promise.all(allFolders.map(async (folder) => {
             try {
                 const photosResponse = await fetch(`/api/photos/folder/${folder.id}`);
                 const photos = await photosResponse.json();
-                return { ...folder, photos, photoCount: photos.length };
+                return { ...folder, photos, photoCount: photos.length, photosLoaded: true };
             } catch (error) {
-                return { ...folder, photos: [], photoCount: 0 };
+                return { ...folder, photos: [], photoCount: 0, photosLoaded: true };
             }
-        }));
+        })).then(loadedFolders => {
+            allFolders = loadedFolders;
 
-        displayNavLinks(allFolders);
-
-        if (allFolders.length > 0) {
-            const viewGalleryButton = document.querySelector('.landing-button.primary');
-            if (viewGalleryButton) {
-                viewGalleryButton.onclick = (event) => {
-                    event.preventDefault();
-                    showFolder(allFolders[0].id);
-                };
+            if (currentFolderId) {
+                showFolder(currentFolderId);
             }
-        }
-
-        showLandingSection();
+        });
     } catch (error) {
         console.error('Error loading gallery:', error);
         document.getElementById('gallery').innerHTML = '<p class="loading">Error loading gallery</p>';
@@ -69,6 +69,7 @@ function displayNavLinks(folders) {
 
     if (folders.length === 0) {
         navLinks.innerHTML = homeLink;
+        requestAnimationFrame(() => navLinks.classList.add('is-loaded'));
         return;
     }
 
@@ -88,6 +89,33 @@ function displayNavLinks(folders) {
             showLandingSection();
         });
     }
+}
+
+function closeMobileMenu() {
+    const navbar = document.querySelector('.navbar');
+    const menuToggle = document.getElementById('menu-toggle');
+    if (!navbar || !menuToggle) return;
+
+    navbar.classList.remove('menu-open');
+    menuToggle.setAttribute('aria-expanded', 'false');
+    menuToggle.setAttribute('aria-label', 'Open navigation menu');
+    menuToggle.innerHTML = '<i class="fas fa-bars" aria-hidden="true"></i>';
+}
+
+function setupMobileMenu() {
+    const navbar = document.querySelector('.navbar');
+    const menuToggle = document.getElementById('menu-toggle');
+    const navLinks = document.getElementById('nav-links');
+    if (!navbar || !menuToggle || !navLinks) return;
+
+    menuToggle.addEventListener('click', () => {
+        const isOpen = navbar.classList.toggle('menu-open');
+        menuToggle.setAttribute('aria-expanded', String(isOpen));
+        menuToggle.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        menuToggle.innerHTML = `<i class="fas fa-${isOpen ? 'times' : 'bars'}" aria-hidden="true"></i>`;
+    });
+
+    navLinks.addEventListener('click', closeMobileMenu);
 }
 
 function updateNavbarMode(isHome) {
@@ -114,6 +142,7 @@ function showLandingSection() {
 
     updateNavbarMode(true);
     document.body.classList.remove('gallery-view');
+    closeMobileMenu();
 
     document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     const homeLink = document.getElementById('link-home');
@@ -125,6 +154,25 @@ function showFolder(folderId) {
     const folder = allFolders.find(f => f.id === folderId);
     
     if (!folder) return;
+
+    if (!folder.photosLoaded) {
+        const galleryContainer = document.getElementById('gallery-container');
+        const landingContainer = document.getElementById('landing-container');
+        const gallery = document.getElementById('gallery');
+
+        currentPhotos = [];
+        if (landingContainer) landingContainer.style.display = 'none';
+        if (galleryContainer) galleryContainer.style.display = 'block';
+        if (gallery) gallery.innerHTML = '<p class="loading">Loading gallery...</p>';
+        updateNavbarMode(false);
+        document.body.classList.add('gallery-view');
+        closeMobileMenu();
+
+        document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+        const loadingLink = document.getElementById(`link-${folderId}`);
+        if (loadingLink) loadingLink.classList.add('active');
+        return;
+    }
 
     const landingContainer = document.getElementById('landing-container');
     const galleryContainer = document.getElementById('gallery-container');
@@ -139,6 +187,7 @@ function showFolder(folderId) {
 
     updateNavbarMode(false);
     document.body.classList.add('gallery-view');
+    closeMobileMenu();
 
     // Store current photos for arrow navigation
     currentPhotos = folder.photos;
@@ -166,6 +215,7 @@ function showFolder(folderId) {
                 `).join('')}
             </div>
         </div>`;
+        requestAnimationFrame(() => navLinks.classList.add('is-loaded'));
 
         // 2. Wait for all images to actually download before animating
         const grid = gallery.querySelector('.photos-grid');
@@ -294,6 +344,7 @@ function escapeHtml(text) {
 
 // Load landing and gallery on page load
 window.addEventListener('DOMContentLoaded', async () => {
+    setupMobileMenu();
     await loadLandingSection();
     await loadGallery();
 });
