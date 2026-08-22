@@ -62,7 +62,7 @@
                         <input
                             type="file"
                             id="landing-image-file"
-                            accept="image/*"
+                            accept="image/*,video/*"
                             multiple
                             required
                             onchange="handleLandingFileSelect(event)"
@@ -71,6 +71,10 @@
                         <span id="landing-file-name">No files selected</span>
                     </div>
                     <button type="submit" class="upload-btn">Upload Home Images</button>
+                    <div class="upload-progress" id="landing-upload-progress" hidden>
+                        <div class="upload-progress-header"><span>Uploading</span><span class="upload-progress-value">0%</span></div>
+                        <div class="upload-progress-track"><div class="upload-progress-bar"></div></div>
+                    </div>
                 </form>
                 <div id="landing-preview-container" class="preview-container"></div>
                 <div id="landing-images-list" class="landing-images-list"></div>
@@ -90,15 +94,19 @@
                         <input 
                             type="file" 
                             id="photo-file" 
-                            accept="image/*" 
+                            accept="image/*,video/*"
                             multiple
                             required
                             onchange="handleFileSelect(event)"
                         >
-                        <label for="photo-file">Choose Images</label>
+                        <label for="photo-file">Choose Images or Videos</label>
                         <span id="file-name">No files selected</span>
                     </div>
-                    <button type="submit" class="upload-btn">Upload Photos</button>
+                    <button type="submit" class="upload-btn">Upload Images or Videos</button>
+                    <div class="upload-progress" id="upload-progress" hidden>
+                        <div class="upload-progress-header"><span>Uploading</span><span class="upload-progress-value">0%</span></div>
+                        <div class="upload-progress-track"><div class="upload-progress-bar"></div></div>
+                    </div>
                 </form>
                 <div id="preview-container" class="preview-container"></div>
                 <p id="upload-message" class="message"></p>

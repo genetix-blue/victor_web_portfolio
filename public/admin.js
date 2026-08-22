@@ -4,6 +4,17 @@ let selectedFiles = [];
 let landingImages = [];
 let selectedLandingFiles = [];
 
+function isVideoUrl(url) {
+    return url.toLowerCase().split('?')[0].endsWith('.webm');
+}
+
+function renderAdminMedia(photo) {
+    if (isVideoUrl(photo.url)) {
+        return `<video src="${photo.url}" muted preload="metadata" class="photo-thumbnail"></video>`;
+    }
+    return `<img src="${photo.url}" alt="Photo" loading="lazy" class="photo-thumbnail">`;
+}
+
 // Check if already logged in
 window.addEventListener('DOMContentLoaded', () => {
     adminToken = sessionStorage.getItem('adminToken');
@@ -277,7 +288,7 @@ async function viewFolderPhotos(folderId) {
                 <div class="photos-grid sortable-grid" data-folder-id="${folderId}">
                     ${photos.map(photo => `
                         <div class="gallery-item photo-item" data-photo-id="${photo.id}">
-                            <img src="${photo.url}" alt="Photo" loading="lazy" class="photo-thumbnail">
+                            ${renderAdminMedia(photo)}
                             <div class="photo-actions">
                                 <button onclick="deletePhoto('${photo.id}')" class="delete-btn">Delete</button>
                             </div>
@@ -333,6 +344,7 @@ async function savePhotoOrder() {
 function handleFileSelect(event) {
     const files = Array.from(event.target.files);
     selectedFiles = files;
+    clearMessage('upload-message');
     
     const fileNameSpan = document.getElementById('file-name');
     if (files.length === 0) {
@@ -347,17 +359,17 @@ function handleFileSelect(event) {
 
 function displayPreview(files) {
     const previewContainer = document.getElementById('preview-container');
-    previewContainer.innerHTML = '<h3>Preview:</h3><div class="preview-grid">' + 
+    previewContainer.innerHTML = '<h3>Media preview:</h3><div class="preview-grid">' +
         files.map((file, index) => {
             const reader = new FileReader();
             
             reader.onload = (e) => {
                 const previewItem = document.querySelector(`[data-file-index="${index}"]`);
                 if (previewItem) {
-                    previewItem.innerHTML = `
-                        <img src="${e.target.result}" alt="Preview">
-                        <span class="preview-name">${escapeHtml(file.name)}</span>
-                    `;
+                    const media = file.type.startsWith('video/')
+                        ? `<video src="${e.target.result}" controls muted></video>`
+                        : `<img src="${e.target.result}" alt="Preview">`;
+                    previewItem.innerHTML = `${media}<span class="preview-name">${escapeHtml(file.name)}</span>`;
                 }
             };
             reader.readAsDataURL(file);
@@ -398,17 +410,8 @@ async function handleUpload(event) {
             formData.append('token', adminToken);
             formData.append('folderId', folderId);
 
-            const response = await fetch('/api/admin/photos', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                uploadedCount++;
-            } else {
-                console.error('Upload failed for:', file.name);
-                failedCount++;
-            }
+            await uploadWithProgress('/api/admin/photos', formData, 'upload-progress', `Uploading ${i + 1}/${totalFiles}`);
+            uploadedCount++;
         } catch (error) {
             console.error('Upload error for', file.name, error);
             failedCount++;
@@ -421,15 +424,16 @@ async function handleUpload(event) {
     document.getElementById('file-name').textContent = 'No files selected';
     document.getElementById('preview-container').innerHTML = '';
     selectedFiles = [];
+    document.getElementById('upload-progress').hidden = true;
 
     if (failedCount === 0) {
-        showMessage(`All ${uploadedCount} photos uploaded successfully!`, 'success', 'upload-message');
+        showMessage(`All ${uploadedCount} media items uploaded successfully!`, 'success', 'upload-message', false);
     } else {
         showMessage(`${uploadedCount} uploaded, ${failedCount} failed`, 'error', 'upload-message');
     }
 
     uploadBtn.disabled = false;
-    uploadBtn.textContent = 'Upload Photos';
+    uploadBtn.textContent = 'Upload Images or Videos';
     
     // Reload folders to update photo counts
     loadFolders();
@@ -490,13 +494,13 @@ async function deletePhoto(photoId) {
     }
 }
 
-function showMessage(message, type, elementId) {
+function showMessage(message, type, elementId, autoClear = true) {
     const element = document.getElementById(elementId || 'upload-message');
     if (!element) return;
     element.textContent = message;
     element.className = `message ${type}`;
     
-    if (type === 'success') {
+    if (type === 'success' && autoClear) {
         setTimeout(() => {
             element.textContent = '';
             element.className = 'message';
@@ -504,10 +508,73 @@ function showMessage(message, type, elementId) {
     }
 }
 
+function clearMessage(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    element.textContent = '';
+    element.className = 'message';
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function uploadWithProgress(url, formData, progressId, progressLabel) {
+    return new Promise((resolve, reject) => {
+        const progress = document.getElementById(progressId);
+        const bar = progress.querySelector('.upload-progress-bar');
+        const value = progress.querySelector('.upload-progress-value');
+        const label = progress.querySelector('.upload-progress-header span');
+        progress.hidden = false;
+        bar.style.width = '0%';
+        value.textContent = '0%';
+        label.textContent = progressLabel;
+
+        const request = new XMLHttpRequest();
+        request.open('POST', url);
+        request.upload.addEventListener('progress', event => {
+            if (!event.lengthComputable) return;
+            const percent = Math.round((event.loaded / event.total) * 100);
+            bar.style.width = `${percent}%`;
+            value.textContent = `${percent}%`;
+        });
+        request.addEventListener('progress', () => {
+            const updates = request.responseText.trim().split('\n');
+            updates.forEach(update => {
+                try {
+                    const data = JSON.parse(update);
+                    if (typeof data.conversionProgress === 'number') {
+                        label.textContent = 'Converting';
+                        bar.style.width = `${data.conversionProgress}%`;
+                        value.textContent = `${data.conversionProgress}%`;
+                    }
+                } catch (error) {
+                    // The final response may still be arriving.
+                }
+            });
+        });
+        request.addEventListener('load', () => {
+            progress.hidden = true;
+            const responseLines = request.responseText.trim().split('\n').filter(Boolean);
+            const responseData = JSON.parse(responseLines[responseLines.length - 1] || '{}');
+            if (request.status >= 200 && request.status < 300 && !responseData.error) {
+                resolve(responseData);
+            } else {
+                reject(new Error(responseData.error || 'Upload failed'));
+            }
+        });
+        request.addEventListener('error', () => {
+            progress.hidden = true;
+            reject(new Error('Network error during upload'));
+        });
+        request.addEventListener('abort', () => {
+            progress.hidden = true;
+            reject(new Error('Upload cancelled'));
+        });
+        request.send(formData);
+    });
 }
 
 async function loadLandingImages() {
@@ -546,6 +613,7 @@ function displayLandingImages() {
 
 function handleLandingFileSelect(event) {
     selectedLandingFiles = Array.from(event.target.files);
+    clearMessage('landing-message');
     document.getElementById('landing-file-name').textContent = selectedLandingFiles.length
         ? `${selectedLandingFiles.length} file(s) selected`
         : 'No files selected';
@@ -586,8 +654,8 @@ async function handleLandingUpload(event) {
         formData.append('image', file);
         formData.append('token', adminToken);
         try {
-            const response = await fetch('/api/admin/landing-images', { method: 'POST', body: formData });
-            if (response.ok) uploadedCount++;
+            await uploadWithProgress('/api/admin/landing-images', formData, 'landing-upload-progress', `Uploading ${uploadedCount + 1}/${selectedLandingFiles.length}`);
+            uploadedCount++;
         } catch (error) {
             console.error('Landing image upload error:', error);
         }
@@ -597,8 +665,9 @@ async function handleLandingUpload(event) {
     document.getElementById('landing-file-name').textContent = 'No files selected';
     document.getElementById('landing-preview-container').innerHTML = '';
     selectedLandingFiles = [];
+    document.getElementById('landing-upload-progress').hidden = true;
     uploadButton.disabled = false;
-    showMessage(`${uploadedCount} home page image(s) uploaded`, 'success', 'landing-message');
+    showMessage(`${uploadedCount} home page image(s) uploaded`, 'success', 'landing-message', false);
     await loadLandingImages();
 }
 

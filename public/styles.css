@@ -313,6 +313,27 @@ main {
     display: block;
 }
 
+.gallery-item video {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.video-badge {
+    position: absolute;
+    right: 0.65rem;
+    bottom: 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    color: #ffffff;
+    background: rgba(0, 0, 0, 0.65);
+    pointer-events: none;
+}
+
 .empty-folder {
     text-align: center;
     color: #999;
@@ -357,6 +378,10 @@ main {
     width: auto;
     height: auto;
     object-fit: contain;
+}
+
+.lightbox video {
+    display: block;
 }
 
 .lightbox-close {

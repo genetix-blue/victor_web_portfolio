@@ -2,6 +2,24 @@ let allFolders = [];
 let currentFolderId = null;
 let currentPhotos = [];
 
+function isVideoPhoto(photo) {
+    return photo.url.toLowerCase().split('?')[0].endsWith('.webm');
+}
+
+function renderGalleryMedia(photo) {
+    if (isVideoPhoto(photo)) {
+        return `<video src="${photo.url}" muted loop playsinline preload="metadata"></video>`;
+    }
+    return `<img src="${photo.url}" alt="Gallery photo" loading="lazy">`;
+}
+
+function renderLightboxMedia(photo) {
+    if (isVideoPhoto(photo)) {
+        return `<video src="${photo.url}" controls autoplay muted loop playsinline preload="auto" class="lightbox-image"></video>`;
+    }
+    return `<img src="${photo.url}" alt="Full size" class="lightbox-image">`;
+}
+
 async function loadLandingSection() {
     const landingContainer = document.getElementById('landing-container');
     if (!landingContainer) return;
@@ -228,7 +246,8 @@ function showFolder(folderId) {
             <div class="photos-grid is-loading">
                 ${folder.photos.map((photo, index) => `
                     <div class="gallery-item" onclick="openLightbox(${index})">
-                        <img src="${photo.url}" alt="Gallery photo" loading="lazy">
+                        ${renderGalleryMedia(photo)}
+                        ${isVideoPhoto(photo) ? '<span class="video-badge" aria-label="Video"><i class="fas fa-play" aria-hidden="true"></i></span>' : ''}
                     </div>
                 `).join('')}
             </div>
@@ -237,7 +256,7 @@ function showFolder(folderId) {
 
         // 2. Wait for all images to actually download before animating
         const grid = gallery.querySelector('.photos-grid');
-        const images = grid.querySelectorAll('img');
+        const images = grid.querySelectorAll('img, video');
 
         waitForImagesToLoad(images).then(() => {
             // Remove the loading state restrictions
@@ -253,26 +272,11 @@ function waitForImagesToLoad(images) {
     const promises = Array.from(images).map(img => {
         return new Promise((resolve) => {
             // If image is already cached/loaded by the browser
-            if (img.complete) {
+            if (img.complete || img.readyState >= 2) {
                 resolve();
             } else {
                 img.onload = () => resolve();
-                img.onerror = () => resolve(); // Resolve anyway so one broken image doesn't break the gallery
-            }
-        });
-    });
-    return Promise.all(promises);
-}
-
-// Helper function to track image loading states
-function waitForImagesToLoad(images) {
-    const promises = Array.from(images).map(img => {
-        return new Promise((resolve) => {
-            // If image is already cached/loaded by the browser
-            if (img.complete) {
-                resolve();
-            } else {
-                img.onload = () => resolve();
+                img.onloadeddata = () => resolve();
                 img.onerror = () => resolve(); // Resolve anyway so one broken image doesn't break the gallery
             }
         });
@@ -294,7 +298,7 @@ function openLightbox(photoIndex) {
         <span class="lightbox-nav prev" onclick="navigateLightbox(-1)">&lt;</span>
         <div class="lightbox-content">
             <span class="lightbox-close" onclick="this.closest('.lightbox').remove()">&times;</span>
-            <img src="${imageUrl}" alt="Full size" class="lightbox-image">
+            ${renderLightboxMedia(currentPhotos[photoIndex])}
             ${currentPhotos.length > 1 ? `
                 <span class="lightbox-counter">${photoIndex + 1} / ${currentPhotos.length}</span>
                 ` : ''}
@@ -343,10 +347,16 @@ function navigateLightbox(direction) {
     }
 
     const newImageUrl = currentPhotos[newIndex].url;
-    const img = lightbox.querySelector('.lightbox-image');
+    const media = lightbox.querySelector('.lightbox-image, video');
     const counter = lightbox.querySelector('.lightbox-counter');
     
-    img.src = newImageUrl;
+    if (isVideoPhoto(currentPhotos[newIndex])) {
+        media.outerHTML = renderLightboxMedia(currentPhotos[newIndex]);
+    } else if (media.tagName.toLowerCase() === 'video') {
+        media.outerHTML = renderLightboxMedia(currentPhotos[newIndex]);
+    } else {
+        media.src = newImageUrl;
+    }
     lightbox.dataset.currentIndex = newIndex;
     
     if (counter) {

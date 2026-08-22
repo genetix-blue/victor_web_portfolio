@@ -126,6 +126,12 @@ Your app is now running with Supabase!
 - Ensure bucket is set to **public** (not private)
 - Check that you have storage quota available
 
+### Video uploads fail
+- Supported uploads include MP4, MOV, WebM, Matroska, and AVI files
+- Videos are converted to compressed WebM files on the server using FFmpeg
+- Restart the server after installing dependencies with `npm install`
+- Large videos may take longer to process and require additional server memory
+
 ### Can't see photos in database
 - Verify table was created successfully:
   ```sql

@@ -5,6 +5,11 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const bodyParser = require('body-parser');
 const sharp = require('sharp');
+const { spawn } = require('child_process');
+const ffmpegPath = require('ffmpeg-static');
+const ffprobePath = require('ffprobe-static').path;
+const fs = require('fs');
+const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -39,14 +44,153 @@ const storage = multer.memoryStorage();
 const upload = multer({ 
   storage,
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (allowedMimes.includes(file.mimetype)) {
+    const allowedMimes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska', 'video/avi'
+    ];
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mov', '.webm', '.mkv', '.avi'];
+    const extension = path.extname(file.originalname).toLowerCase();
+    if (allowedMimes.includes(file.mimetype) || allowedExtensions.includes(extension)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.'));
+      cb(new Error('Invalid file type. Only supported image and video formats are allowed.'));
     }
   }
 });
+
+function uploadMedia(req, res, next) {
+  upload.single('image')(req, res, error => {
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    next();
+  });
+}
+
+function createUploadProgress(res) {
+  let streaming = false;
+  const start = () => {
+    if (streaming) return;
+    streaming = true;
+    res.status(200).setHeader('Content-Type', 'application/x-ndjson');
+  };
+
+  return {
+    update(percent) {
+      start();
+      res.write(`${JSON.stringify({ conversionProgress: percent })}\n`);
+    },
+    send(data) {
+      if (!streaming) return res.json(data);
+      res.end(`${JSON.stringify(data)}\n`);
+    },
+    fail(error) {
+      const payload = { error: error.message || 'Upload failed' };
+      if (!streaming) return res.status(400).json(payload);
+      res.end(`${JSON.stringify(payload)}\n`);
+    }
+  };
+}
+
+function getVideoDuration(inputPath) {
+  return new Promise((resolve, reject) => {
+    const ffprobe = spawn(ffprobePath, [
+      '-v', 'error',
+      '-show_entries', 'format=duration',
+      '-of', 'default=noprint_wrappers=1:nokey=1',
+      inputPath
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const output = [];
+    const errors = [];
+    ffprobe.stdout.on('data', chunk => output.push(chunk));
+    ffprobe.stderr.on('data', chunk => errors.push(chunk));
+    ffprobe.on('error', reject);
+    ffprobe.on('close', code => {
+      const duration = parseFloat(Buffer.concat(output).toString().trim());
+      if (code === 0 && Number.isFinite(duration) && duration > 0) {
+        resolve(duration);
+      } else {
+        reject(new Error(Buffer.concat(errors).toString() || 'Unable to read video duration'));
+      }
+    });
+  });
+}
+
+function convertVideoToWebm(inputBuffer, onProgress) {
+  return new Promise(async (resolve, reject) => {
+    const inputPath = path.join(os.tmpdir(), `gallery-video-${Date.now()}-${Math.random().toString(16).slice(2)}.input`);
+    const outputPath = `${inputPath}.webm`;
+
+    try {
+      await fs.promises.writeFile(inputPath, inputBuffer);
+    } catch (error) {
+      reject(error);
+      return;
+    }
+
+    let duration;
+    try {
+      duration = await getVideoDuration(inputPath);
+    } catch (error) {
+      await fs.promises.unlink(inputPath).catch(() => {});
+      reject(error);
+      return;
+    }
+
+    const ffmpeg = spawn(ffmpegPath, [
+      '-loglevel', 'error',
+      '-i', inputPath,
+      '-c:v', 'libvpx-vp9',
+      '-crf', '35',
+      '-b:v', '0',
+      '-c:a', 'libopus',
+      '-b:a', '96k',
+      '-progress', 'pipe:2',
+      '-nostats',
+      '-f', 'webm',
+      outputPath
+    ], {
+      stdio: ['ignore', 'ignore', 'pipe']
+    });
+    const errors = [];
+    let progressText = '';
+
+    ffmpeg.stderr.on('data', chunk => {
+      const text = chunk.toString();
+      errors.push(chunk);
+      progressText += text;
+      const match = progressText.match(/out_time_us=(\d+)/);
+      if (match && onProgress) {
+        const percent = Math.min(99, Math.round((Number(match[1]) / 1000000 / duration) * 100));
+        onProgress(percent);
+      }
+      progressText = progressText.slice(-200);
+    });
+    ffmpeg.on('error', error => {
+      Promise.all([
+        fs.promises.unlink(inputPath).catch(() => {}),
+        fs.promises.unlink(outputPath).catch(() => {})
+      ]).finally(() => reject(error));
+    });
+    ffmpeg.on('close', async code => {
+      await fs.promises.unlink(inputPath).catch(() => {});
+      if (code === 0) {
+        try {
+          const output = await fs.promises.readFile(outputPath);
+          await fs.promises.unlink(outputPath).catch(() => {});
+          resolve(output);
+        } catch (error) {
+          await fs.promises.unlink(outputPath).catch(() => {});
+          reject(error);
+        }
+      } else {
+        await fs.promises.unlink(outputPath).catch(() => {});
+        reject(new Error(Buffer.concat(errors).toString() || `FFmpeg exited with code ${code}`));
+      }
+    });
+
+  });
+}
 
 // Initialize database tables
 async function initializeDatabase() {
@@ -385,7 +529,7 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // Add photo (admin)
-app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
+app.post('/api/admin/photos', uploadMedia, async (req, res) => {
   const { token, folderId } = req.body;
   if (token !== 'admin-token') {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -399,21 +543,22 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
     return res.status(400).json({ error: 'Folder ID is required' });
   }
 
-  try {
-    // Convert image to WebP with high quality for minimal quality loss
-    const webpBuffer = await sharp(req.file.buffer)
-      .webp({ quality: 85 })
-      .toBuffer();
+  const isVideo = req.file.mimetype.startsWith('video/') ||
+    ['.mp4', '.mov', '.webm', '.mkv', '.avi'].includes(path.extname(req.file.originalname).toLowerCase());
+  const progress = createUploadProgress(res);
 
-    // Generate filename with .webp extension
+  try {
+    const convertedBuffer = isVideo
+      ? await convertVideoToWebm(req.file.buffer, progress.update)
+      : await sharp(req.file.buffer).webp({ quality: 85 }).toBuffer();
     const originalName = path.parse(req.file.originalname).name;
-    const fileName = `${Date.now()}-${originalName}.webp`;
+    const fileName = `${Date.now()}-${originalName}.${isVideo ? 'webm' : 'webp'}`;
     
     // Upload converted WebP to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from('photos')
-      .upload(`public/${fileName}`, webpBuffer, {
-        contentType: 'image/webp',
+      .upload(`public/${fileName}`, convertedBuffer, {
+        contentType: isVideo ? 'video/webm' : 'image/webp',
         upsert: true,
         cacheControl: '3600'
       });
@@ -466,15 +611,16 @@ app.post('/api/admin/photos', upload.single('image'), async (req, res) => {
       return res.status(500).json({ error: 'Failed to save photo metadata' });
     }
 
-    res.json(photoData);
+    progress.send(photoData);
   } catch (error) {
     console.error('Upload handler error:', error);
+    if (isVideo) return progress.fail(new Error(`Video conversion failed: ${error.message}`));
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Add homepage image (admin)
-app.post('/api/admin/landing-images', upload.single('image'), async (req, res) => {
+app.post('/api/admin/landing-images', uploadMedia, async (req, res) => {
   const { token } = req.body;
   if (token !== 'admin-token') {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -484,18 +630,22 @@ app.post('/api/admin/landing-images', upload.single('image'), async (req, res) =
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
+  const isVideo = req.file.mimetype.startsWith('video/') ||
+    ['.mp4', '.mov', '.webm', '.mkv', '.avi'].includes(path.extname(req.file.originalname).toLowerCase());
+  const progress = createUploadProgress(res);
+
   try {
-    const webpBuffer = await sharp(req.file.buffer)
-      .webp({ quality: 85 })
-      .toBuffer();
+    const convertedBuffer = isVideo
+      ? await convertVideoToWebm(req.file.buffer, progress.update)
+      : await sharp(req.file.buffer).webp({ quality: 85 }).toBuffer();
     const originalName = path.parse(req.file.originalname).name;
-    const fileName = `${Date.now()}-${originalName}.webp`;
+    const fileName = `${Date.now()}-${originalName}.${isVideo ? 'webm' : 'webp'}`;
     const storagePath = `public/${fileName}`;
 
     const { error: uploadError } = await supabaseAdmin.storage
       .from('photos')
-      .upload(storagePath, webpBuffer, {
-        contentType: 'image/webp',
+      .upload(storagePath, convertedBuffer, {
+        contentType: isVideo ? 'video/webm' : 'image/webp',
         upsert: true,
         cacheControl: '3600'
       });
@@ -530,9 +680,10 @@ app.post('/api/admin/landing-images', upload.single('image'), async (req, res) =
       return res.status(500).json({ error: 'Failed to save landing image metadata' });
     }
 
-    res.json(imageData);
+    progress.send(imageData);
   } catch (error) {
     console.error('Landing image upload error:', error);
+    if (isVideo) return progress.fail(new Error(`Video conversion failed: ${error.message}`));
     res.status(500).json({ error: 'Server error' });
   }
 });
