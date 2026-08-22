@@ -289,6 +289,7 @@ async function viewFolderPhotos(folderId) {
                     ${photos.map(photo => `
                         <div class="gallery-item photo-item" data-photo-id="${photo.id}">
                             ${renderAdminMedia(photo)}
+                            ${isVideoUrl(photo.url) ? '<span class="admin-video-badge" aria-label="Video"></span>' : ''}
                             <div class="photo-actions">
                                 <button onclick="deletePhoto('${photo.id}')" class="delete-btn">Delete</button>
                             </div>

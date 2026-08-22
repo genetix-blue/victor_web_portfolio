@@ -642,6 +642,27 @@ section h2 {
     height: auto;
 }
 
+.admin-video-badge {
+    position: absolute;
+    right: 0.75rem;
+    top: 0.75rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+}
+
+.admin-video-badge::before {
+    content: '';
+    position: absolute;
+    top: 0.6rem;
+    left: 0.78rem;
+    border-top: 0.4rem solid transparent;
+    border-bottom: 0.4rem solid transparent;
+    border-left: 0.6rem solid #ffffff;
+}
+
 .folder-view{
     display: flex;
     align-items: center;
