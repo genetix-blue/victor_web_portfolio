@@ -41,6 +41,7 @@ main {
     left: 0;
     width: 100%;
     z-index: 30;
+    pointer-events: none;
     background: transparent;
     box-shadow: none;
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -82,10 +83,12 @@ main {
     align-items: center;
     gap: 1.75rem;
     flex-wrap: wrap;
+    pointer-events: auto;
 }
 
 .menu-toggle {
     display: none;
+    pointer-events: auto;
     border: 0;
     padding: 0.5rem;
     color: #ffffff;
